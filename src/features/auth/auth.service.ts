@@ -165,18 +165,30 @@ export function registerLicenciado(api: ApiClient, input: RegisterInput): Promis
   );
 }
 
-/** `POST /v1/auth/register-sublicenciado` (public). Requires the single-use invitation token. */
-export function registerSublicenciado(api: ApiClient, input: RegisterInput & { convite: string }): Promise<RegisteredUser> {
+/**
+ * `POST /v1/auth/register-sublicenciado` (public). The live ACVEL API links the representative by
+ * `codigo_licenciado` (validated server-side); licenciado-api uses a single-use `convite` token instead.
+ */
+export function registerSublicenciado(
+  api: ApiClient,
+  input: RegisterInput & ({ codigoLicenciado: string; convite?: undefined } | { convite: string; codigoLicenciado?: undefined })
+): Promise<RegisteredUser> {
   return api.post<RegisteredUser>(
     "/v1/auth/register-sublicenciado",
     {
       email: input.email.trim().toLowerCase(),
       password: input.password,
       displayName: input.displayName ?? null,
-      convite: input.convite
+      ...(input.convite ? { convite: input.convite } : { codigo_licenciado: input.codigoLicenciado })
     },
     { authenticated: false, service: "auth" }
   );
+}
+
+/** Live API: `POST /v1/sublicenciados/validate-codigo` (public, 2xx = valid code). */
+export async function validateLicenciadoCode(api: ApiClient, codigo: string): Promise<true> {
+  await api.post("/v1/sublicenciados/validate-codigo", { codigo_licenciado: codigo.trim().toUpperCase() }, { authenticated: false });
+  return true;
 }
 
 export type InvitationValidation = {

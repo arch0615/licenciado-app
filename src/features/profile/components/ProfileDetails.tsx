@@ -12,6 +12,7 @@ import { formatDate, onlyDigits } from "@/lib/format";
 import { userMessage } from "@/services/api/errors";
 import { spacing } from "@/theme/tokens";
 
+import { canUpdateProfile } from "../profile.service";
 import type { AccountProfile } from "../types";
 import { useProfile, useUpdateProfile } from "../useProfile";
 
@@ -68,7 +69,7 @@ export function ProfileDetails() {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
-  const canEdit = hasPermission(me, "profile:update");
+  const canEdit = hasPermission(me, "profile:update") && canUpdateProfile(me);
 
   if (me.approvalStatus === "NO_RECORD") {
     return (

@@ -53,7 +53,8 @@ const GENERIC_MESSAGES: Record<number, string> = {
 /**
  * Builds an ApiError from a non-2xx response body (tolerates non-JSON bodies).
  * Accepts the licenciado-api envelope `{ error: { code, message, details } }` and the legacy
- * ACVEL envelope `{ message | error | detail }` still returned by older business services.
+ * ACVEL/NestJS envelope `{ message: string | string[], error, statusCode }` returned by the live
+ * services. NestJS puts the HTTP reason phrase in `error` ("Bad Request"), so it is never shown.
  */
 export function apiErrorFromResponse(status: number, body: unknown, requestId: string | null): ApiError {
   const record = typeof body === "object" && body !== null ? (body as Record<string, unknown>) : undefined;
@@ -61,7 +62,11 @@ export function apiErrorFromResponse(status: number, body: unknown, requestId: s
     record && typeof record.error === "object" && record.error !== null
       ? (record.error as { code?: unknown; message?: unknown; details?: unknown })
       : undefined;
-  const legacyMessage = [record?.message, typeof record?.error === "string" ? record.error : undefined, record?.detail].find(
+  // NestJS validation errors send `message` as a string array: show them all, one per line.
+  const nestMessages = Array.isArray(record?.message)
+    ? record.message.filter((item): item is string => typeof item === "string" && item.length > 0).join("\n")
+    : undefined;
+  const legacyMessage = [nestMessages, record?.message, record?.detail].find(
     (value): value is string => typeof value === "string" && value.length > 0
   );
   const code =

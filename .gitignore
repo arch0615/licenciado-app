@@ -46,3 +46,10 @@ yarn-error.*
 !.env.example
 .expo-export-check/
 .expo-export-check-prod/
+
+# Firebase native config from the client (keep out of git; see firebase/README.md)
+/firebase/*
+!/firebase/README.md
+
+# Live validation output (local only)
+/validation-results/

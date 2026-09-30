@@ -2,7 +2,14 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 
 import { api, authGateway } from "@/services/runtime";
 
-import { registerLicenciado, registerSublicenciado, validateInvitation, type RegisterInput } from "./auth.service";
+import {
+  registerLicenciado,
+  registerSublicenciado,
+  validateInvitation,
+  validateLicenciadoCode,
+  type RegisterInput
+} from "./auth.service";
+import { signupReferral } from "./signup-referral";
 
 /**
  * Registration: the backend creates the Firebase user, then the app signs in with the same
@@ -19,10 +26,23 @@ export function useRegisterLicenciado() {
 
 export function useRegisterSublicenciado() {
   return useMutation({
-    mutationFn: async (input: RegisterInput & { convite: string }) => {
+    mutationFn: async (input: RegisterInput & ({ codigoLicenciado: string } | { convite: string })) => {
       await registerSublicenciado(api, input);
+      // Needed by the first-access bootstrap on the live API (cleared once it succeeds).
+      if ("codigoLicenciado" in input) await signupReferral.save(input.codigoLicenciado);
       await authGateway.signIn(input.email, input.password);
     }
+  });
+}
+
+/** Live API referral code check (public). */
+export function useLicenciadoCodeValidation(codigo: string | undefined) {
+  return useQuery({
+    queryKey: ["public", "licenciado-code", codigo ?? ""],
+    queryFn: () => validateLicenciadoCode(api, codigo ?? ""),
+    enabled: Boolean(codigo),
+    staleTime: 60_000,
+    retry: false
   });
 }
 

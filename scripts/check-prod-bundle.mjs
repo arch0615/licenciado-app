@@ -24,7 +24,7 @@ const REQUIRED = [
 const https = (name, fallback) => (process.env[name]?.startsWith("https://") ? process.env[name] : fallback);
 
 rmSync(OUT, { recursive: true, force: true });
-const result = spawnSync(`npx expo export --platform android --output-dir ${OUT} --clear`, {
+const result = spawnSync(`npx expo export --platform android --output-dir ${OUT} --clear --max-workers 2`, {
   stdio: "inherit",
   shell: true,
   env: {

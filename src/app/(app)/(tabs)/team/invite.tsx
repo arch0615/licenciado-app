@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Share, View } from "react-native";
 
 import { TextField } from "@/components/forms/TextField";
-import { PermissionState } from "@/components/states/QueryState";
+import { PermissionState, QueryState } from "@/components/states/QueryState";
 import { AppText } from "@/components/ui/AppText";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -11,7 +11,9 @@ import { Screen } from "@/components/ui/Screen";
 import { hasPermission } from "@/features/auth/permissions";
 import { EMAIL_PATTERN } from "@/features/auth/password-policy";
 import { useAuthenticatedContext } from "@/features/auth/SessionProvider";
-import { useCreateInvitation } from "@/features/team/useTeam";
+import { useProfile } from "@/features/profile/useProfile";
+import { codeInviteLink } from "@/features/team/team.service";
+import { useCreateInvitation, useInvitations } from "@/features/team/useTeam";
 import { formatDate } from "@/lib/format";
 import { userMessage } from "@/services/api/errors";
 import { spacing } from "@/theme/tokens";
@@ -20,12 +22,15 @@ const shareInvitation = (link: string) =>
   Share.share({ message: `Você foi convidado para ser representante ACVEL. Cadastre-se pelo link: ${link}` });
 
 /**
- * S28 — Convidar representante: POST /v1/sublicenciados/convites (Swagger). The single-use link is
- * returned once and shared with the native share sheet (no QR service).
+ * S28 — Convidar representante, shared with the native share sheet (no QR service):
+ * - token invitations (licenciado-api: POST /v1/sublicenciados/convites, single-use link returned once);
+ * - live ACVEL API (no invitation endpoints): the licenciado's code link, like the web portal.
  */
 export default function InviteScreen() {
   const { me } = useAuthenticatedContext();
   const create = useCreateInvitation();
+  const invitations = useInvitations();
+  const profile = useProfile();
   const [email, setEmail] = useState("");
   const [emailError, setEmailError] = useState<string | null>(null);
 
@@ -34,6 +39,37 @@ export default function InviteScreen() {
       <Screen edges={["left", "right", "bottom"]}>
         <Stack.Screen options={{ title: "Convidar" }} />
         <PermissionState message="Você não tem permissão para convidar representantes." />
+      </Screen>
+    );
+  }
+
+  // Live ACVEL API: no token invitations → share the code-based signup link.
+  if (invitations.data === null) {
+    return (
+      <Screen edges={["left", "right", "bottom"]}>
+        <Stack.Screen options={{ title: "Convidar representante" }} />
+        <QueryState query={profile} loadingLines={2}>
+          {(data) => {
+            const codigo = data.role === "LICENCIADO" ? data.data.codigo_licenciado : null;
+            return codigo ? (
+              <View style={{ gap: spacing.md }}>
+                <AppText tone="muted">
+                  Envie seu link de cadastro. Quem se cadastrar por ele ficará vinculado à sua equipe após a aprovação
+                  da ACVEL.
+                </AppText>
+                <Card>
+                  <AppText variant="overline" tone="muted">
+                    Seu código
+                  </AppText>
+                  <AppText variant="title3">{codigo}</AppText>
+                </Card>
+                <Button label="Compartilhar link" size="lg" fullWidth onPress={() => void shareInvitation(codeInviteLink(codigo))} />
+              </View>
+            ) : (
+              <AppText tone="muted">Seu código de licenciado ainda não foi gerado.</AppText>
+            );
+          }}
+        </QueryState>
       </Screen>
     );
   }

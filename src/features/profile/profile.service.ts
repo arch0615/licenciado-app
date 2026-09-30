@@ -1,5 +1,6 @@
 import type { AppRole } from "@/features/auth/route-state";
-import { isApiError } from "@/services/api/errors";
+import type { AuthMe } from "@/features/auth/types";
+import { ApiError, isApiError } from "@/services/api/errors";
 import type { ApiClient } from "@/services/api/types";
 
 import type {
@@ -12,8 +13,9 @@ import type {
 
 /**
  * Profile & account.
- * Swagger (licenciado-api): GET/PATCH /v1/licenciados/me, GET/PATCH /v1/sublicenciados/me,
- *   POST /v1/licenciados/bootstrap-me, POST /v1/sublicenciados/bootstrap-me.
+ * Live ACVEL business API (docs/openapi/acvel-business-live.json): GET /v1/licenciados/me,
+ *   PATCH /v1/licenciados/{id}, GET /v1/sublicenciados/me, POST /v1/{licenciados|sublicenciados}/bootstrap-me.
+ *   Representatives have no profile-update endpoint on the live API.
  * Inventory only (not in Swagger — unverified): contract B16, sessions A6–A8, deletion request A9.
  * The role passed in always comes from GET /v1/auth/me; no id is ever sent — the backend uses the token.
  */
@@ -24,21 +26,44 @@ export async function getProfile(api: ApiClient, role: AppRole): Promise<Account
   return { role, data: await api.get<SublicenciadoProfile>("/v1/sublicenciados/me") };
 }
 
-export async function updateProfile(
-  api: ApiClient,
-  role: AppRole,
-  changes: LicenciadoProfileUpdate | SublicenciadoProfileUpdate
-): Promise<AccountProfile> {
-  if (role === "LICENCIADO") {
-    return { role, data: await api.patch<LicenciadoProfile>("/v1/licenciados/me", changes) };
-  }
-  const { nome_completo, telefone } = changes;
-  return { role, data: await api.patch<SublicenciadoProfile>("/v1/sublicenciados/me", { nome_completo, telefone }) };
+/** Live API: only licenciados can update their own data (PATCH /v1/licenciados/{id}). */
+export function canUpdateProfile(me: Pick<AuthMe, "tipoUsuarioResolvido" | "licenciadoId">): boolean {
+  return me.tipoUsuarioResolvido === "LICENCIADO" && Boolean(me.licenciadoId);
 }
 
-/** Creates the caller's business record (first access). Idempotent on the backend. */
-export function bootstrapMe(api: ApiClient, role: AppRole): Promise<unknown> {
-  return api.post(role === "LICENCIADO" ? "/v1/licenciados/bootstrap-me" : "/v1/sublicenciados/bootstrap-me");
+/**
+ * The id comes from GET /v1/auth/me (server-resolved), never from local storage; the backend must
+ * still reject ids that are not the caller's own licenciado (inventory B11).
+ */
+export async function updateProfile(
+  api: ApiClient,
+  me: Pick<AuthMe, "tipoUsuarioResolvido" | "licenciadoId">,
+  changes: LicenciadoProfileUpdate | SublicenciadoProfileUpdate
+): Promise<AccountProfile> {
+  if (!canUpdateProfile(me)) {
+    throw new ApiError({ status: 403, code: "PROFILE_UPDATE_UNSUPPORTED", message: "Para alterar seus dados, fale com o suporte." });
+  }
+  const { nome_completo, telefone } = changes;
+  const body = { nome_completo, telefone, celular: telefone };
+  await api.patch(`/v1/licenciados/${encodeURIComponent(me.licenciadoId!)}`, body);
+  // The PATCH returns the admin DTO; re-read the self view the screens use.
+  return { role: "LICENCIADO", data: await api.get<LicenciadoProfile>("/v1/licenciados/me") };
+}
+
+/**
+ * Creates the caller's business record (first access). Idempotent on the backend.
+ * Live API: a representative must send the licenciado code used at signup (the backend validates it).
+ */
+export function bootstrapMe(api: ApiClient, role: AppRole, codigoLicenciado?: string | null): Promise<unknown> {
+  if (role === "LICENCIADO") return api.post("/v1/licenciados/bootstrap-me");
+  if (!codigoLicenciado) {
+    throw new ApiError({
+      status: 422,
+      code: "CODIGO_LICENCIADO_REQUIRED",
+      message: "Abra novamente o link de cadastro enviado pelo seu licenciado para concluir o primeiro acesso."
+    });
+  }
+  return api.post("/v1/sublicenciados/bootstrap-me", { codigo_licenciado: codigoLicenciado });
 }
 
 /** B16 (inventory). 204 → no contract. SUB never sees the parent's contract. */

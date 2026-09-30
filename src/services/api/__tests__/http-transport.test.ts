@@ -208,6 +208,20 @@ describe("http transport", () => {
     });
   });
 
+  it("maps live NestJS validation errors (message array, reason phrase in error)", async () => {
+    const { transport } = setup([
+      jsonResponse(400, { message: ["Email invalido", "Senha deve ter no minimo 8 caracteres"], error: "Bad Request", statusCode: 400 })
+    ]);
+    const error = (await transport.request({ method: "POST", path: "/v1/x", body: {} }).catch((e: unknown) => e)) as ApiError;
+    expect(error.message).toBe("Email invalido\nSenha deve ter no minimo 8 caracteres");
+    expect(error.message).not.toContain("Bad Request");
+  });
+
+  it("never shows the NestJS reason phrase as the message", async () => {
+    const { transport } = setup([jsonResponse(403, { message: "Acesso negado", error: "Forbidden", statusCode: 403 })]);
+    await expect(transport.request({ method: "POST", path: "/v1/x", body: {} })).rejects.toMatchObject({ message: "Acesso negado" });
+  });
+
   it("hides server messages on 5xx", async () => {
     const { transport } = setup([jsonResponse(500, { message: "relation users does not exist" })]);
     const error = (await transport.request({ method: "POST", path: "/v1/x", body: {} }).catch((e: unknown) => e)) as ApiError;

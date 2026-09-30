@@ -1,3 +1,5 @@
+import * as Crypto from "expo-crypto";
+
 import { ApiError } from "@/services/api/errors";
 import { toPage } from "@/services/api/pagination";
 import type { ApiClient } from "@/services/api/types";
@@ -34,6 +36,12 @@ export function validatePickedFile(file: PickedFile): string | null {
   return null;
 }
 
+/** SHA-256 (hex) of the file bytes, required by the live API as `arquivo_checksum`. */
+export async function sha256Hex(bytes: ArrayBuffer): Promise<string> {
+  const digest = await Crypto.digest(Crypto.CryptoDigestAlgorithm.SHA256, new Uint8Array(bytes));
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
 /**
  * Owner ids here come from GET /v1/auth/me (server-resolved). The backend must still verify them
  * against the token (inventory D1: "ignore query owner ids for non-admins").
@@ -47,22 +55,30 @@ export async function listDocuments(api: ApiClient, owner: DocumentOwner): Promi
  * Upload pipeline: presign (D2) → PUT bytes → confirm (D4), or reenviar (D5) for a rejected document.
  * - Absolute presigned URLs (object storage) receive the file WITHOUT the Firebase token.
  * - Relative URLs (backend local-storage driver) go through the API client (Bearer).
- * The checksum is not sent: the inventory requires the backend to compute it from the stored object.
+ * `arquivo_checksum` is the real SHA-256 of the bytes (the live API requires it; the web sent a fake value).
+ * The backend should still recompute it from the stored object.
  */
 export async function uploadDocument(
   api: ApiClient,
   owner: DocumentOwner,
   tipo: DocumentType,
   file: PickedFile,
-  options: { replaceDocumentId?: string; fetchImpl?: typeof fetch } = {}
+  options: { replaceDocumentId?: string; fetchImpl?: typeof fetch; hash?: (bytes: ArrayBuffer) => Promise<string> } = {}
 ): Promise<DocumentItem> {
   const invalid = validatePickedFile(file);
   if (invalid) throw new ApiError({ status: 422, code: "INVALID_FILE", message: invalid });
 
-  const metadata = { arquivo_nome: file.name, arquivo_tamanho: file.size, arquivo_mime_type: file.mimeType };
+  const fetchImpl = options.fetchImpl ?? fetch;
+  // Read the local file twice: React Native cannot build a Blob from an ArrayBuffer.
+  const checksum = await (options.hash ?? sha256Hex)(await (await fetchImpl(file.uri)).arrayBuffer());
+  const metadata = {
+    arquivo_nome: file.name,
+    arquivo_tamanho: file.size,
+    arquivo_mime_type: file.mimeType,
+    arquivo_checksum: checksum
+  };
   const presigned = await api.post<PresignedUpload>("/v1/documentos/presign-upload", { ...owner, tipo, ...metadata });
 
-  const fetchImpl = options.fetchImpl ?? fetch;
   const blob = await (await fetchImpl(file.uri)).blob();
   if (presigned.upload_url.startsWith("/")) {
     await api.put(presigned.upload_url, blob, { contentType: file.mimeType });

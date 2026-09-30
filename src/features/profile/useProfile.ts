@@ -8,7 +8,6 @@ import { useUserId } from "@/services/query/useUserId";
 import { api } from "@/services/runtime";
 
 import {
-  bootstrapMe,
   getContract,
   getProfile,
   listSessions,
@@ -32,11 +31,11 @@ export function useProfile() {
 
 export function useUpdateProfile() {
   const uid = useUserId();
-  const { role } = useAuthenticatedContext();
+  const { role, me } = useAuthenticatedContext();
   const queryClient = useQueryClient();
   const { refresh } = useSession();
   return useMutation({
-    mutationFn: (changes: LicenciadoProfileUpdate | SublicenciadoProfileUpdate) => updateProfile(api, role, changes),
+    mutationFn: (changes: LicenciadoProfileUpdate | SublicenciadoProfileUpdate) => updateProfile(api, me, changes),
     onSuccess: async (profile) => {
       queryClient.setQueryData(queryKeys.user(uid, "profile", role), profile);
       await refresh();
@@ -44,11 +43,6 @@ export function useUpdateProfile() {
   });
 }
 
-export function useBootstrapMe() {
-  const { role } = useAuthenticatedContext();
-  const { refresh } = useSession();
-  return useMutation({ mutationFn: () => bootstrapMe(api, role), onSuccess: () => refresh() });
-}
 
 export function useContract(enabled: boolean) {
   const uid = useUserId();

@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef } from "react";
 
 import { useAuthenticatedContext, useSession } from "@/features/auth/SessionProvider";
+import { signupReferral } from "@/features/auth/signup-referral";
 import {
   listDocuments,
   uploadDocument,
@@ -36,7 +37,8 @@ export function useStartOnboarding() {
   return useMutation({
     mutationFn: async () => {
       if (me.approvalStatus === "NO_RECORD") {
-        await bootstrapMe(api, role);
+        await bootstrapMe(api, role, role === "SUBLICENCIADO" ? await signupReferral.read() : null);
+        await signupReferral.clear();
         await refresh();
         return null; // /v1/auth/me now carries the new id; the status screen starts the flow next.
       }

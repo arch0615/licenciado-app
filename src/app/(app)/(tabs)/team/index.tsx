@@ -21,6 +21,8 @@ import { spacing } from "@/theme/tokens";
 function Invitations() {
   const invitations = useInvitations();
   const revoke = useRevokeInvitation();
+  // Backend without token invitations (live ACVEL API): nothing to list or revoke.
+  if (invitations.data === null) return null;
   return (
     <Card>
       <View style={{ gap: spacing.xs }}>
@@ -30,11 +32,11 @@ function Invitations() {
         <QueryState
           query={invitations}
           loadingLines={1}
-          isEmpty={(list) => list.length === 0}
+          isEmpty={(list) => !list || list.length === 0}
           empty={<AppText tone="muted">Nenhum convite enviado.</AppText>}
         >
           {(list) =>
-            list.map((invitation) => {
+            (list ?? []).map((invitation) => {
               const status = invitationStatusLabel(invitation.status);
               return (
                 <ListRow

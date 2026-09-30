@@ -19,6 +19,7 @@ const envSchema = z
     businessApiUrl: url,
     rateioApiUrl: url,
     consumidorAppUrl: url,
+    licenciadoWebUrl: url,
     termsUrl: url,
     privacyUrl: url,
     apiTimeoutMs: z.coerce.number().int().min(1000).max(60000).default(15000),
@@ -35,6 +36,7 @@ const envSchema = z
       businessApiUrl: env.businessApiUrl,
       rateioApiUrl: env.rateioApiUrl,
       consumidorAppUrl: env.consumidorAppUrl,
+      licenciadoWebUrl: env.licenciadoWebUrl,
       termsUrl: env.termsUrl,
       privacyUrl: env.privacyUrl
     };
@@ -69,6 +71,7 @@ export type RawEnv = {
   EXPO_PUBLIC_BUSINESS_API_URL?: string;
   EXPO_PUBLIC_RATEIO_API_URL?: string;
   EXPO_PUBLIC_CONSUMIDOR_APP_URL?: string;
+  EXPO_PUBLIC_LICENCIADO_WEB_URL?: string;
   EXPO_PUBLIC_TERMS_URL?: string;
   EXPO_PUBLIC_PRIVACY_URL?: string;
   EXPO_PUBLIC_API_TIMEOUT_MS?: string;
@@ -88,6 +91,7 @@ export function parseConfig(raw: RawEnv): AppConfig {
     businessApiUrl: raw.EXPO_PUBLIC_BUSINESS_API_URL || undefined,
     rateioApiUrl: raw.EXPO_PUBLIC_RATEIO_API_URL || undefined,
     consumidorAppUrl: raw.EXPO_PUBLIC_CONSUMIDOR_APP_URL || undefined,
+    licenciadoWebUrl: raw.EXPO_PUBLIC_LICENCIADO_WEB_URL || undefined,
     termsUrl: raw.EXPO_PUBLIC_TERMS_URL || undefined,
     privacyUrl: raw.EXPO_PUBLIC_PRIVACY_URL || undefined,
     apiTimeoutMs: raw.EXPO_PUBLIC_API_TIMEOUT_MS || undefined,
@@ -108,7 +112,8 @@ export function parseConfig(raw: RawEnv): AppConfig {
     authApiUrl: stripSlash(env.authApiUrl),
     businessApiUrl: stripSlash(env.businessApiUrl),
     rateioApiUrl: stripSlash(env.rateioApiUrl),
-    consumidorAppUrl: stripSlash(env.consumidorAppUrl)
+    consumidorAppUrl: stripSlash(env.consumidorAppUrl),
+    licenciadoWebUrl: stripSlash(env.licenciadoWebUrl)
   };
 }
 
@@ -124,6 +129,7 @@ export const config: AppConfig = parseConfig({
   EXPO_PUBLIC_BUSINESS_API_URL: process.env.EXPO_PUBLIC_BUSINESS_API_URL,
   EXPO_PUBLIC_RATEIO_API_URL: process.env.EXPO_PUBLIC_RATEIO_API_URL,
   EXPO_PUBLIC_CONSUMIDOR_APP_URL: process.env.EXPO_PUBLIC_CONSUMIDOR_APP_URL,
+  EXPO_PUBLIC_LICENCIADO_WEB_URL: process.env.EXPO_PUBLIC_LICENCIADO_WEB_URL,
   EXPO_PUBLIC_TERMS_URL: process.env.EXPO_PUBLIC_TERMS_URL,
   EXPO_PUBLIC_PRIVACY_URL: process.env.EXPO_PUBLIC_PRIVACY_URL,
   EXPO_PUBLIC_API_TIMEOUT_MS: process.env.EXPO_PUBLIC_API_TIMEOUT_MS,

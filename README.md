@@ -14,12 +14,11 @@ It stays independent from the other two, which keeps a later move to a monorepo 
 - no path imports across projects;
 - the shared contracts are the backend's HTTP API and the docs.
 
-**Status: API integration.** Screens call the ACVEL backends through `Screen → Hook → Service → API client`.
-Endpoints in the licenciado-api Swagger (auth, profile, team, invitations) are contract-tested against
-`docs/openapi/licenciado-api.json`. The other modules follow the legacy contracts in
-`licenciado-web/docs/backend-api-inventory.md` and are **unverified** until the business API publishes
-its OpenAPI (see `src/services/api/__tests__/contract.test.ts`). With `EXPO_PUBLIC_USE_MOCKS=true`
-the same code runs against an in-memory mock backend.
+**Status: live validation.** Screens call the ACVEL backends through `Screen → Hook → Service → API client`.
+The target is the live ACVEL API (`api-acvel.souaiv.com`); its business Swagger is saved in
+`docs/openapi/acvel-business-live.json` (`npm run openapi:pull`) and checked by
+`src/services/api/__tests__/contract.test.ts`. Progress and mismatches: `docs/live-api-validation.md`.
+With `EXPO_PUBLIC_USE_MOCKS=true` the same code runs against an in-memory mock backend.
 
 ---
 
@@ -69,6 +68,9 @@ npm run verify             # lint + typecheck + test
 npm run check:prod-bundle  # exports a production Android bundle and fails if any mock code is inside
 npm run bundle:check       # exports the current configuration (proves the route tree compiles)
 npm run doctor             # expo-doctor
+npm run firebase:check     # validates firebase/ native files (com.acvel.app) and derives EXPO_PUBLIC_FIREBASE_*
+npm run validate:live      # read-only live API checks (LIVE_EMAIL / LIVE_PASSWORD env vars)
+npm run openapi:pull       # refreshes the live Swagger snapshots
 ```
 
 **Before any store build, all of these must pass:**

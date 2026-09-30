@@ -51,11 +51,20 @@ describe("clients", () => {
 });
 
 describe("profile", () => {
-  it("representatives can only send name and phone", async () => {
+  it("licenciado: PATCH /v1/licenciados/{id from /auth/me} with name and phone only, then re-reads /me", async () => {
     const { api, requests } = recordingApi(() => ({}));
-    await updateProfile(api, "SUBLICENCIADO", { nome_completo: "A", telefone: "1", email: "x@y.z" });
-    expect(requests[0]).toMatchObject({ method: "PATCH", path: "/v1/sublicenciados/me", body: { nome_completo: "A", telefone: "1" } });
+    await updateProfile(api, { tipoUsuarioResolvido: "LICENCIADO", licenciadoId: "lic-9" }, { nome_completo: "A", telefone: "1", email: "x@y.z" });
+    expect(requests[0]).toMatchObject({ method: "PATCH", path: "/v1/licenciados/lic-9", body: { nome_completo: "A", telefone: "1", celular: "1" } });
     expect(requests[0]?.body).not.toHaveProperty("email");
+    expect(requests[1]).toMatchObject({ method: "GET", path: "/v1/licenciados/me" });
+  });
+
+  it("representatives cannot update (no live endpoint) and nothing is sent", async () => {
+    const { api, requests } = recordingApi(() => ({}));
+    await expect(
+      updateProfile(api, { tipoUsuarioResolvido: "SUBLICENCIADO", licenciadoId: "lic-1" }, { nome_completo: "A" })
+    ).rejects.toMatchObject({ code: "PROFILE_UPDATE_UNSUPPORTED" });
+    expect(requests).toHaveLength(0);
   });
 });
 
@@ -79,7 +88,9 @@ describe("documents", () => {
     const fetchImpl = jest.fn(async (url: RequestInfo | URL) =>
       String(url).startsWith("file:") ? new Response("bytes") : new Response(null, { status: 200 })
     ) as unknown as typeof fetch;
-    await uploadDocument(api, owner, "RG", file, { fetchImpl });
+    await uploadDocument(api, owner, "RG", file, { fetchImpl, hash: async () => "abc123" });
+    expect(requests[0]?.body).toMatchObject({ arquivo_checksum: "abc123", arquivo_mime_type: "application/pdf", arquivo_tamanho: 1000 });
+    expect(requests[1]?.body).toMatchObject({ arquivo_checksum: "abc123", arquivo_path: "p/1" });
     const put = (fetchImpl as unknown as jest.Mock).mock.calls.find(([url]) => String(url).startsWith("https://"));
     expect(put?.[1]).toMatchObject({ method: "PUT", headers: { "Content-Type": "application/pdf" } });
     expect(JSON.stringify(put?.[1]?.headers)).not.toMatch(/Authorization/i);
@@ -89,7 +100,7 @@ describe("documents", () => {
   it("refuses non-https absolute upload URLs", async () => {
     const { api } = recordingApi(() => ({ upload_url: "http://evil.test/put", arquivo_path: "p" }));
     const fetchImpl = jest.fn(async () => new Response("bytes")) as unknown as typeof fetch;
-    await expect(uploadDocument(api, owner, "RG", file, { fetchImpl })).rejects.toMatchObject({ code: "UPLOAD_URL_REJECTED" });
+    await expect(uploadDocument(api, owner, "RG", file, { fetchImpl, hash: async () => "x" })).rejects.toMatchObject({ code: "UPLOAD_URL_REJECTED" });
   });
 });
 
