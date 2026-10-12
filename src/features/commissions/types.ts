@@ -41,6 +41,8 @@ export type Payment = {
   valor_liquido: number | null;
   status: string;
   motivo_falha: string | null;
+  detalhe_falha?: string | null;
+  comprovante_path?: string | null;
   created_at: string;
   pago_em: string | null;
   competencias: string[];
@@ -57,6 +59,7 @@ export type PaymentStatement = {
     valor_liquido: number | null;
     created_at: string;
     pago_em: string | null;
+    comprovante_path?: string | null;
   };
   totais: {
     quantidade_comissoes: number;
@@ -64,7 +67,21 @@ export type PaymentStatement = {
     valor_total_pago: number | null;
     valor_parte_licenciado: number | null;
     valor_repasses_sublicenciados: number | null;
+    valor_total_itens?: number | null;
+    /** Backend-computed difference between the batch total and its items (shown as a warning). */
+    divergencia_total_lote?: number | null;
   };
+  clientes_diretos?: { quantidade_clientes: number; quantidade_comissoes: number; valor_comissao: number | null } | null;
+  sublicenciados?: {
+    sublicenciado_id: string;
+    nome: string | null;
+    codigo_sublicenciado: string | null;
+    quantidade_clientes: number;
+    quantidade_comissoes: number;
+    valor_parte_licenciado: number | null;
+    valor_repassado_sublicenciado: number | null;
+    valor_total_comissoes: number | null;
+  }[];
   itens: {
     comissao_id: string;
     competencia: string;

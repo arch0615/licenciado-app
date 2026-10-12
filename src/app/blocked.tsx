@@ -46,9 +46,9 @@ export default function BlockedScreen() {
         </AppText>
       </View>
       <Card>
-        <AppText variant="bodyStrong">Precisa de ajuda?</AppText>
+        <AppText variant="bodyStrong">Precisa de suporte?</AppText>
         <AppText variant="callout" tone="muted">
-          Canal de suporte público (WhatsApp / e-mail) será adicionado com o módulo de Suporte (S33).
+          Entre em contato com a equipe ACVEL.
         </AppText>
       </Card>
       <Button label="Sair" variant="outline" onPress={() => void signOut()} fullWidth />

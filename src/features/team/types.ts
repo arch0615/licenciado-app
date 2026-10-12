@@ -42,7 +42,3 @@ export type TeamInvitation = {
   accepted_at: string | null;
 };
 
-/** POST /v1/sublicenciados/convites (201): the raw token and link are returned only once. */
-export type CreatedTeamInvitation = TeamInvitation & { token: string; link: string };
-
-export type CreateInvitationInput = { email?: string; expires_in_days?: number };

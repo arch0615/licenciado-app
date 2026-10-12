@@ -13,7 +13,7 @@ const ANDROID = "firebase/google-services-android.json";
 const problems = [];
 
 function plistValue(xml, key) {
-  const match = new RegExp(`<key>${key}</key>\s*<(string|true|false)\s*/?>([^<]*)`).exec(xml);
+  const match = new RegExp(`<key>${key}</key>\\s*<(string|true|false)\\s*/?>([^<]*)`).exec(xml);
   return match ? (match[1] === "string" ? match[2].trim() : match[1]) : null;
 }
 

@@ -23,6 +23,7 @@ features/<module>/
 4. **Roles:** read the role/approval from `useAuthenticatedContext()`; hide UI for other roles but
    remember the backend is the authority (handle `403 { code }` gracefully).
 5. **States:** every screen handles loading (skeleton), empty (with action), error (with retry), offline.
-6. **Critical mutations** (checkout, submissions, invitations): pass `idempotencyKey` (reuse on retry)
-   and disable the button while pending.
+6. **Scope:** parity with the normal-user licenciado portal; ADM/internal operator functions are excluded (see
+   `docs/live-api-validation.md` §0). The parity-scope guard test enforces the write allowlist. Writes pass
+   `idempotencyKey` where the backend supports it (reuse on retry) and disable the button while pending.
 7. **Copy:** Portuguese with accents; no developer text in the UI.

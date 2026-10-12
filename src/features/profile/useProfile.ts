@@ -16,7 +16,7 @@ import {
   revokeSession,
   updateProfile
 } from "./profile.service";
-import type { LicenciadoProfileUpdate, SublicenciadoProfileUpdate } from "./types";
+import type { LicenciadoProfileUpdate } from "./types";
 
 export function useProfile() {
   const uid = useUserId();
@@ -28,21 +28,6 @@ export function useProfile() {
     enabled: me.approvalStatus !== "NO_RECORD"
   });
 }
-
-export function useUpdateProfile() {
-  const uid = useUserId();
-  const { role, me } = useAuthenticatedContext();
-  const queryClient = useQueryClient();
-  const { refresh } = useSession();
-  return useMutation({
-    mutationFn: (changes: LicenciadoProfileUpdate | SublicenciadoProfileUpdate) => updateProfile(api, me, changes),
-    onSuccess: async (profile) => {
-      queryClient.setQueryData(queryKeys.user(uid, "profile", role), profile);
-      await refresh();
-    }
-  });
-}
-
 
 export function useContract(enabled: boolean) {
   const uid = useUserId();
@@ -73,4 +58,19 @@ export function useAccountDeletionRequest() {
   // One key per screen visit: a retry after a network error reuses it (no duplicate requests).
   const key = useRef(newIdempotencyKey("delete-account"));
   return useMutation({ mutationFn: () => requestAccountDeletion(api, key.current) });
+}
+
+/** Portal /perfil "Editar dados" (licenciado: name and phone). Refreshes the session context afterwards. */
+export function useUpdateProfile() {
+  const uid = useUserId();
+  const { role, me } = useAuthenticatedContext();
+  const queryClient = useQueryClient();
+  const { refresh } = useSession();
+  return useMutation({
+    mutationFn: (changes: LicenciadoProfileUpdate) => updateProfile(api, me, changes),
+    onSuccess: async (profile) => {
+      queryClient.setQueryData(queryKeys.user(uid, "profile", role), profile);
+      await refresh();
+    }
+  });
 }

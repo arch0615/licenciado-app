@@ -8,12 +8,11 @@
     "@react-native-community/netinfo": "12.0.1",
     "@tanstack/react-query": "^5.104.0",
     "expo": "~57.0.26",
+    "expo-clipboard": "~57.0.2",
     "expo-constants": "~57.0.19",
     "expo-crypto": "~57.0.3",
     "expo-document-picker": "~57.0.3",
-    "expo-file-system": "~57.0.7",
     "expo-font": "~57.0.4",
-    "expo-image-picker": "~57.0.20",
     "expo-linking": "~57.0.11",
     "expo-router": "~57.0.24",
     "expo-secure-store": "~57.0.4",
@@ -25,6 +24,7 @@
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "0.86.3",
+    "react-native-qrcode-svg": "^6.3.26",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "~4.26.0",
     "react-native-svg": "15.15.4",
@@ -42,8 +42,8 @@
   },
   "scripts": {
     "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
     "test": "jest",
@@ -53,21 +53,9 @@
     "verify": "npm run lint && npm run typecheck && npm test",
     "check:prod-bundle": "node scripts/check-prod-bundle.mjs",
     "firebase:check": "node scripts/firebase-check.mjs",
-    "openapi:pull": "curl -fsS https://api-acvel.souaiv.com/api/business/docs-json -o docs/openapi/acvel-business-live.json && curl -fsS https://api.appacvel.com.br/api/rateio/docs-json -o docs/openapi/acvel-rateio-live.json",
-    "validate:live": "node scripts/live-validate.mjs"
+    "openapi:pull": "curl -fsS https://api-acvel.souaiv.com/api/business/docs-json -o docs/openapi/acvel-business-live.json && curl -fsS https://api-acvel.souaiv.com/api/rateio/docs-json -o docs/openapi/acvel-rateio-live.json",
+    "validate:live": "node scripts/live-validate.mjs",
+    "test:live": "npm run validate:live --"
   },
-  "private": true,
-  "jest": {
-    "preset": "jest-expo",
-    "transformIgnorePatterns": [
-      "node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@sentry/react-native|native-base|react-native-svg|lucide-react-native)"
-    ],
-    "testMatch": [
-      "**/__tests__/**/*.test.ts?(x)"
-    ],
-    "moduleNameMapper": {
-      "^lucide-react-native$": "<rootDir>/test/mocks/lucide-react-native.js",
-      "^@/(.*)$": "<rootDir>/src/$1"
-    }
-  }
+  "private": true
 }

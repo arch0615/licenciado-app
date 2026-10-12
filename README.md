@@ -105,7 +105,7 @@ src/
     bootstrap.tsx                   session loading / error with retry
     maintenance.tsx                 remote maintenance state
     blocked.tsx                     suspended · inactive · blocked · forbidden · staff
-    (auth)/                         welcome · login · register · register-sublicenciado · recover
+    (auth)/                         welcome · login · recover   (login only: registration is outside the app)
     pending/                        tabs: status · academy · help · profile   (URL prefix /pending)
     (app)/_layout.tsx               stack above the tabs (notifications, future modal flows)
     (app)/(tabs)/                   index · clients/ · commissions/ · team/ (LIC) · academy/ (SUB) · more/
@@ -166,4 +166,4 @@ Both patterns were measured to leak mock modules into the bundle; `npm run check
 - **No ids from the client:** tenant, owner and user ids are never sent in bodies or filters. The two legacy paths that need an id (dashboard, onboarding) use the value returned by `/v1/auth/me`.
 - **No financial math:** amounts, points and progress are displayed as received (`src/lib/format.ts` only formats them).
 - **No automatic legal acceptance:** the terms/contract onboarding step is not implemented until a legal-documents endpoint exists.
-- **Uploads:** presign → PUT → confirm. Absolute presigned URLs never receive the Firebase token.
+- **Scope (client rule, 2026-10-06):** The client confirmed that mobile apps must provide parity with the normal user-facing production portals. Only ADM/internal operator functionality is excluded. `src/features/__tests__/parity-scope.test.ts` keeps the write allowlist of normal-user portal actions and fails on ADM, financial-generation or rateio writes. See `docs/live-api-validation.md` §0 and §12.

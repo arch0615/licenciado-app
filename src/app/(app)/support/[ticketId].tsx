@@ -7,7 +7,7 @@ export default function TicketScreen() {
   const { ticketId } = useLocalSearchParams<{ ticketId: string }>();
   return (
     <Screen edges={["left", "right", "bottom"]}>
-      <Stack.Screen options={{ title: "Chamado" }} />
+      <Stack.Screen options={{ title: "Detalhe do ticket" }} />
       <TicketConversation ticketId={ticketId} />
     </Screen>
   );

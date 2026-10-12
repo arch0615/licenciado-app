@@ -40,14 +40,14 @@ export function isApiError(value: unknown): value is ApiError {
 
 const GENERIC_MESSAGES: Record<number, string> = {
   0: "Sem conexão com a internet. Verifique sua rede e tente novamente.",
-  401: "Sua sessão expirou. Entre novamente.",
+  401: "Sua sessão expirou. Faça login novamente.",
   403: "Você não tem permissão para esta ação.",
   404: "Não encontramos o que você procura.",
   409: "Esta ação entrou em conflito com uma alteração recente.",
-  422: "Não foi possível concluir esta ação.",
+  422: "Não foi possível concluir a ação.",
   429: "Muitas tentativas. Aguarde um instante e tente novamente.",
-  500: "Algo deu errado do nosso lado. Tente novamente em instantes.",
-  503: "Serviço temporariamente indisponível. Tente novamente em instantes."
+  500: "Algo deu errado do nosso lado. Tente novamente em alguns instantes.",
+  503: "Serviço temporariamente indisponível. Tente novamente em alguns instantes."
 };
 
 /**

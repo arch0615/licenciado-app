@@ -81,39 +81,6 @@ export const teamRoutes: MockRoute[] = [
   },
   { method: "GET", path: "/v1/sublicenciados/convites", handler: () => (guard(), { data: invitations }) },
   {
-    method: "POST",
-    path: "/v1/sublicenciados/convites",
-    handler: ({ request }) => {
-      guard();
-      const { email } = (request.body ?? {}) as { email?: string };
-      const token = `mock-convite-${Date.now().toString(36)}`;
-      const invitation: TeamInvitation = {
-        id: `inv-${invitations.length + 1}`,
-        email: email ?? null,
-        status: "ATIVO",
-        expires_at: new Date(Date.now() + 7 * 86_400_000).toISOString(),
-        created_at: new Date().toISOString(),
-        accepted_at: null
-      };
-      invitations.unshift(invitation);
-      return { ...invitation, token, link: `https://licenciado.acvel.example/auth/register/sublicenciado?convite=${token}` };
-    }
-  },
-  {
-    method: "DELETE",
-    path: "/v1/sublicenciados/convites/:id",
-    handler: ({ params }) => {
-      guard();
-      const invitation = invitations.find((item) => item.id === params.id);
-      if (!invitation) throw new ApiError({ status: 404, code: "INVITATION_NOT_FOUND", message: "Convite não encontrado." });
-      if (invitation.status !== "ATIVO") {
-        throw new ApiError({ status: 409, code: "INVITATION_NOT_ACTIVE", message: "Este convite não está mais ativo." });
-      }
-      invitation.status = "REVOGADO";
-      return invitation;
-    }
-  },
-  {
     method: "GET",
     path: "/v1/sublicenciados/:id",
     handler: ({ params }) => {

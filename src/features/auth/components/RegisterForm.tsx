@@ -6,13 +6,15 @@ import { TextField } from "@/components/forms/TextField";
 import { AppText } from "@/components/ui/AppText";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { config } from "@/config/env";
+import { legalLinks } from "@/config/links";
 import { userMessage } from "@/services/api/errors";
 import { spacing } from "@/theme/tokens";
 
 import { AuthError } from "../auth-gateway";
 import { EMAIL_PATTERN, passwordMeetsPolicy } from "../password-policy";
 import { PasswordChecklist } from "./PasswordChecklist";
+
+const legal = legalLinks();
 
 export type RegisterValues = { displayName: string; email: string; password: string };
 
@@ -92,22 +94,15 @@ export function RegisterForm({ submitLabel, lockedEmail, submitting, error, onSu
         textContentType="newPassword"
       />
       <AppText variant="caption" tone="muted">
-        Ao criar a conta você concorda com os{" "}
-        {config.termsUrl ? (
-          <AppText variant="caption" tone="primary" onPress={() => void Linking.openURL(config.termsUrl)}>
-            Termos de Uso
-          </AppText>
-        ) : (
-          "Termos de Uso"
-        )}{" "}
-        e a{" "}
-        {config.privacyUrl ? (
-          <AppText variant="caption" tone="primary" onPress={() => void Linking.openURL(config.privacyUrl)}>
-            Política de Privacidade
-          </AppText>
-        ) : (
-          "Política de Privacidade"
-        )}
+        Ao criar a conta você concorda com:{" "}
+        {legal.length > 0
+          ? legal.map((link, index) => (
+              <AppText key={link.label} variant="caption" tone="primary" onPress={() => void Linking.openURL(link.url)}>
+                {index > 0 ? " e " : ""}
+                {link.label}
+              </AppText>
+            ))
+          : "Termos de uso e Política de privacidade"}
         . O contrato e os documentos legais serão apresentados para sua leitura e aceite no cadastro.
       </AppText>
       {errorText ? (

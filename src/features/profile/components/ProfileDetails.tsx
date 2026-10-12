@@ -42,7 +42,7 @@ function rows(profile: AccountProfile): [string, string | null | undefined][] {
   ];
   if (profile.role === "LICENCIADO") {
     return [
-      ["Código de licenciado", profile.data.codigo_licenciado],
+      ["Código do licenciado", profile.data.codigo_licenciado],
       ["Cupom", profile.data.codigo_cupom],
       ...base,
       ["Razão social", profile.data.razao_social],
@@ -51,7 +51,7 @@ function rows(profile: AccountProfile): [string, string | null | undefined][] {
   }
   const parent = profile.data.licenciado;
   return [
-    ["Código de representante", profile.data.codigo_sublicenciado],
+    ["Código do representante", profile.data.codigo_sublicenciado],
     ["Cupom", profile.data.codigo_cupom],
     ...base,
     ["Licenciado", parent.nome_fantasia ?? parent.razao_social ?? parent.codigo_licenciado]

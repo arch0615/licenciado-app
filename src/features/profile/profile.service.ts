@@ -3,19 +3,12 @@ import type { AuthMe } from "@/features/auth/types";
 import { ApiError, isApiError } from "@/services/api/errors";
 import type { ApiClient } from "@/services/api/types";
 
-import type {
-  AccountProfile,
-  LicenciadoProfile,
-  LicenciadoProfileUpdate,
-  SublicenciadoProfile,
-  SublicenciadoProfileUpdate
-} from "./types";
+import type { AccountProfile, LicenciadoProfile, LicenciadoProfileUpdate, SublicenciadoProfile } from "./types";
 
 /**
  * Profile & account.
- * Live ACVEL business API (docs/openapi/acvel-business-live.json): GET /v1/licenciados/me,
- *   PATCH /v1/licenciados/{id}, GET /v1/sublicenciados/me, POST /v1/{licenciados|sublicenciados}/bootstrap-me.
- *   Representatives have no profile-update endpoint on the live API.
+ * GET /v1/licenciados/me, GET /v1/sublicenciados/me, contract; licenciado name/phone edit and first-access
+ * bootstrap as in the portal. Account/security: end sessions, account-deletion request (LGPD / store rule).
  * Inventory only (not in Swagger — unverified): contract B16, sessions A6–A8, deletion request A9.
  * The role passed in always comes from GET /v1/auth/me; no id is ever sent — the backend uses the token.
  */
@@ -26,33 +19,39 @@ export async function getProfile(api: ApiClient, role: AppRole): Promise<Account
   return { role, data: await api.get<SublicenciadoProfile>("/v1/sublicenciados/me") };
 }
 
-/** Live API: only licenciados can update their own data (PATCH /v1/licenciados/{id}). */
+/**
+ * Portal /perfil "Editar dados" is available to licenciados (`PATCH /v1/licenciados/{id}` + auth profile).
+ * Representatives: the portal edits the PARENT licenciado's record for them (portal bug), so the app does not
+ * offer it — there is no representative self-update endpoint (backend gap).
+ */
 export function canUpdateProfile(me: Pick<AuthMe, "tipoUsuarioResolvido" | "licenciadoId">): boolean {
   return me.tipoUsuarioResolvido === "LICENCIADO" && Boolean(me.licenciadoId);
 }
 
 /**
- * The id comes from GET /v1/auth/me (server-resolved), never from local storage; the backend must
- * still reject ids that are not the caller's own licenciado (inventory B11).
+ * Same writes as the portal: `PUT {AUTH}/v1/auth/profile {displayName, phoneNumber}` and
+ * `PATCH /v1/licenciados/{id} {nome_completo, telefone, celular}`. The id comes from /v1/auth/me (server
+ * resolved); the backend must reject ids that are not the caller's. E-mail changes are not sent (they need
+ * the auth-provider verification flow).
  */
 export async function updateProfile(
   api: ApiClient,
   me: Pick<AuthMe, "tipoUsuarioResolvido" | "licenciadoId">,
-  changes: LicenciadoProfileUpdate | SublicenciadoProfileUpdate
+  changes: LicenciadoProfileUpdate
 ): Promise<AccountProfile> {
   if (!canUpdateProfile(me)) {
     throw new ApiError({ status: 403, code: "PROFILE_UPDATE_UNSUPPORTED", message: "Para alterar seus dados, fale com o suporte." });
   }
   const { nome_completo, telefone } = changes;
-  const body = { nome_completo, telefone, celular: telefone };
-  await api.patch(`/v1/licenciados/${encodeURIComponent(me.licenciadoId!)}`, body);
+  await api.put("/v1/auth/profile", { displayName: nome_completo, phoneNumber: telefone }, { service: "auth" });
+  await api.patch(`/v1/licenciados/${encodeURIComponent(me.licenciadoId!)}`, { nome_completo, telefone, celular: telefone });
   // The PATCH returns the admin DTO; re-read the self view the screens use.
   return { role: "LICENCIADO", data: await api.get<LicenciadoProfile>("/v1/licenciados/me") };
 }
 
 /**
- * Creates the caller's business record (first access). Idempotent on the backend.
- * Live API: a representative must send the licenciado code used at signup (the backend validates it).
+ * Creates the caller's business record on first access (portal splash: licenciado on 404; representative
+ * with the licenciado code used at signup — the backend validates it). Idempotent on the backend.
  */
 export function bootstrapMe(api: ApiClient, role: AppRole, codigoLicenciado?: string | null): Promise<unknown> {
   if (role === "LICENCIADO") return api.post("/v1/licenciados/bootstrap-me");

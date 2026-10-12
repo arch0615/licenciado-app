@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { ListRow } from "@/components/ui/ListRow";
 import { Screen } from "@/components/ui/Screen";
-import { config } from "@/config/env";
+import { legalLinks } from "@/config/links";
 import { useAuthenticatedContext } from "@/features/auth/SessionProvider";
 import type { Contract } from "@/features/profile/profile.service";
 import { useContract } from "@/features/profile/useProfile";
@@ -31,6 +31,7 @@ const isHttps = (url: string | null): url is string => typeof url === "string" &
 export default function LegalScreen() {
   const { role } = useAuthenticatedContext();
   const contract = useContract(role === "LICENCIADO");
+  const legal = legalLinks();
 
   return (
     <Screen>
@@ -40,13 +41,10 @@ export default function LegalScreen() {
           <AppText variant="overline" tone="muted">
             Documentos
           </AppText>
-          {config.termsUrl ? (
-            <ListRow title="Termos de Uso" onPress={() => void Linking.openURL(config.termsUrl)} />
-          ) : null}
-          {config.privacyUrl ? (
-            <ListRow title="Política de Privacidade" onPress={() => void Linking.openURL(config.privacyUrl)} />
-          ) : null}
-          {!config.termsUrl && !config.privacyUrl ? (
+          {legal.map((link) => (
+            <ListRow key={link.url + link.label} title={link.label} onPress={() => void Linking.openURL(link.url)} />
+          ))}
+          {legal.length === 0 ? (
             <AppText tone="muted">Os documentos legais ainda não estão disponíveis no aplicativo.</AppText>
           ) : null}
         </View>

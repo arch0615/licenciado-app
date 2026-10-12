@@ -1,15 +1,12 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
 
 import { hasPermission } from "@/features/auth/permissions";
 import { useAuthenticatedContext } from "@/features/auth/SessionProvider";
-import { newIdempotencyKey } from "@/services/api/client";
 import { queryKeys } from "@/services/query/query-keys";
 import { useUserId } from "@/services/query/useUserId";
 import { api } from "@/services/runtime";
 
-import { createInvitation, getTeamMember, listInvitations, listTeam, revokeInvitation } from "./team.service";
-import type { CreateInvitationInput } from "./types";
+import { getTeamMember, listInvitations, listTeam } from "./team.service";
 
 /** Team data is requested only with `team:read` (representatives never call these endpoints). */
 function useCanReadTeam() {
@@ -41,24 +38,4 @@ export function useInvitations() {
   });
 }
 
-export function useCreateInvitation() {
-  const uid = useUserId();
-  const queryClient = useQueryClient();
-  const key = useRef(newIdempotencyKey("invite"));
-  return useMutation({
-    mutationFn: (input: CreateInvitationInput) => createInvitation(api, input, key.current),
-    onSuccess: async () => {
-      key.current = newIdempotencyKey("invite");
-      await queryClient.invalidateQueries({ queryKey: queryKeys.user(uid, "team", "invitations") });
-    }
-  });
-}
 
-export function useRevokeInvitation() {
-  const uid = useUserId();
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => revokeInvitation(api, id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.user(uid, "team", "invitations") })
-  });
-}

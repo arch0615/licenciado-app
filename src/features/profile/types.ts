@@ -29,13 +29,9 @@ export type LicenciadoProfile = {
   created_at: string;
 };
 
-/** Swagger body of `PATCH /v1/licenciados/me`. */
-export type LicenciadoProfileUpdate = Partial<{
-  nome_completo: string;
-  telefone: string;
-  email: string;
-  celular: string;
-}>;
+
+/** Fields the portal lets a licenciado edit (name and phone). */
+export type LicenciadoProfileUpdate = Partial<{ nome_completo: string; telefone: string }>;
 
 /** licenciado-api `GET/PATCH /v1/sublicenciados/me` (Swagger). */
 export type SublicenciadoProfile = {
@@ -70,8 +66,6 @@ export type SublicenciadoProfile = {
   };
 };
 
-/** Swagger body of `PATCH /v1/sublicenciados/me`. */
-export type SublicenciadoProfileUpdate = Partial<{ nome_completo: string; telefone: string }>;
 
 export type AccountProfile =
   | { role: "LICENCIADO"; data: LicenciadoProfile }

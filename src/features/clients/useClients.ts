@@ -1,20 +1,18 @@
-import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useRef } from "react";
+import { keepPreviousData, useInfiniteQuery, useQuery } from "@tanstack/react-query";
 
-import { newIdempotencyKey } from "@/services/api/client";
 import { queryKeys } from "@/services/query/query-keys";
 import { useUserId } from "@/services/query/useUserId";
 import { api } from "@/services/runtime";
 
 import {
-  createClient,
   getClient,
   getClientJourney,
   listClients,
   listJourneyCards,
-  listPendingActions
+  listPendingActions,
+  type JourneyFilters
 } from "./client.service";
-import type { ClientFilters, CreateClientInput } from "./types";
+import type { ClientFilters } from "./types";
 
 export function useClients(filters: ClientFilters) {
   const uid = useUserId();
@@ -40,11 +38,11 @@ export function useClientJourney(clientId: string) {
   });
 }
 
-export function useJourneyBoard(query: string) {
+export function useJourneyBoard(filters: JourneyFilters) {
   const uid = useUserId();
   return useQuery({
-    queryKey: queryKeys.user(uid, "clients", "journey-board", query),
-    queryFn: () => listJourneyCards(api, query),
+    queryKey: queryKeys.user(uid, "clients", "journey-board", filters),
+    queryFn: () => listJourneyCards(api, filters),
     placeholderData: keepPreviousData
   });
 }
@@ -54,16 +52,3 @@ export function usePendingActions() {
   return useQuery({ queryKey: queryKeys.user(uid, "clients", "pending-actions"), queryFn: () => listPendingActions(api) });
 }
 
-export function useCreateClient() {
-  const uid = useUserId();
-  const queryClient = useQueryClient();
-  // Same key for retries of the same form submission; a new one after success.
-  const key = useRef(newIdempotencyKey("client"));
-  return useMutation({
-    mutationFn: (input: CreateClientInput) => createClient(api, input, key.current),
-    onSuccess: async () => {
-      key.current = newIdempotencyKey("client");
-      await queryClient.invalidateQueries({ queryKey: queryKeys.user(uid, "clients") });
-    }
-  });
-}

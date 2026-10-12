@@ -5,7 +5,7 @@ import { NewTicketForm } from "@/features/support/components/SupportViews";
 export default function PendingNewTicketScreen() {
   return (
     <Screen>
-      <ScreenHeader title="Novo chamado" />
+      <ScreenHeader title="Novo ticket" />
       <NewTicketForm base="/pending/support" />
     </Screen>
   );

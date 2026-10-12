@@ -29,11 +29,11 @@ export function useNotificationSummary() {
   });
 }
 
-export function useNotifications(onlyUnread: boolean) {
+export function useNotifications(onlyUnread: boolean, query = "") {
   const uid = useUserId();
   return useInfiniteQuery({
-    queryKey: queryKeys.user(uid, "notifications", "list", onlyUnread),
-    queryFn: ({ pageParam }) => listNotifications(api, onlyUnread, pageParam),
+    queryKey: queryKeys.user(uid, "notifications", "list", onlyUnread, query),
+    queryFn: ({ pageParam }) => listNotifications(api, onlyUnread, pageParam, query),
     initialPageParam: 1,
     getNextPageParam: (last) => (last.page * last.pageSize < last.total ? last.page + 1 : undefined),
     enabled: useCanRead()

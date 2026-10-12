@@ -54,7 +54,7 @@ function ChangePasswordCard() {
     <Card>
       <View style={{ gap: spacing.sm }}>
         <AppText variant="overline" tone="muted">
-          Alterar senha
+          Trocar senha
         </AppText>
         <TextField label="Senha atual" value={current} onChangeText={setCurrent} password autoComplete="current-password" />
         <TextField label="Nova senha" value={next} onChangeText={setNext} password autoComplete="new-password" />
@@ -70,7 +70,7 @@ function ChangePasswordCard() {
             Senha alterada com sucesso.
           </AppText>
         ) : null}
-        <Button label="Alterar senha" fullWidth loading={change.isPending} onPress={submit} />
+        <Button label="Trocar senha" fullWidth loading={change.isPending} onPress={submit} />
       </View>
     </Card>
   );

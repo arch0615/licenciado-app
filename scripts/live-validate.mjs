@@ -2,6 +2,7 @@
 /**
  * Live API validation (read-only) against the real ACVEL backend.
  *
+ *   npm run validate:live -- --label licenciado        (credentials from validation-results/accounts.env)
  *   LIVE_EMAIL=... LIVE_PASSWORD=... npm run validate:live -- --label licenciado
  *
  * - Signs in with Firebase Auth REST (same project/API key as the app, from .env) and exercises the
@@ -28,13 +29,24 @@ function loadEnv() {
 }
 
 const env = loadEnv();
+// Per-account credentials from validation-results/accounts.env (git-ignored): LIVE_<LABEL>_EMAIL / _PASSWORD.
+if (!env.LIVE_EMAIL && existsSync("validation-results/accounts.env")) {
+  const prefix = `LIVE_${label.toUpperCase().replace(/[^A-Z0-9]/g, "_")}_`;
+  for (const line of readFileSync("validation-results/accounts.env", "utf8").split(/\r?\n/)) {
+    const match = /^([A-Z0-9_]+)=(.*)$/.exec(line.trim());
+    if (match?.[1] === `${prefix}EMAIL`) env.LIVE_EMAIL = match[2].trim();
+    if (match?.[1] === `${prefix}PASSWORD`) env.LIVE_PASSWORD = match[2];
+  }
+}
 const AUTH = env.EXPO_PUBLIC_AUTH_API_URL;
 const BUSINESS = env.EXPO_PUBLIC_BUSINESS_API_URL;
 const API_KEY = env.EXPO_PUBLIC_FIREBASE_API_KEY;
 const { LIVE_EMAIL, LIVE_PASSWORD } = env;
 
 if (!API_KEY || !AUTH || !BUSINESS) throw new Error("Missing EXPO_PUBLIC_FIREBASE_API_KEY / AUTH / BUSINESS URL in .env");
-if (!LIVE_EMAIL || !LIVE_PASSWORD) throw new Error("Set LIVE_EMAIL and LIVE_PASSWORD");
+if (!LIVE_EMAIL || !LIVE_PASSWORD) {
+  throw new Error(`No credentials for "${label}": set LIVE_EMAIL/LIVE_PASSWORD or fill validation-results/accounts.env`);
+}
 
 const results = [];
 const shape = (value) => {
@@ -164,6 +176,10 @@ const role = m.tipoUsuarioResolvido ?? m.tipoUsuario ?? m.roleSlug ?? m.role;
 const isSub = String(role).toUpperCase().includes("SUBLICENCIADO");
 console.log(`  role: ${role} · approvalStatus: ${m.approvalStatus ?? "(absent)"} · permissions: ${Array.isArray(m.permissions) ? m.permissions.length : "(absent)"}`);
 results.push({ step: "role", role, approvalStatus: m.approvalStatus ?? null, permissionsCount: Array.isArray(m.permissions) ? m.permissions.length : null });
+const features = m.features && typeof m.features === "object" ? m.features : null;
+console.log(`  /auth/me keys: ${Object.keys(m).sort().join(", ")}`);
+console.log(`  features: ${features ? JSON.stringify(features) : "(absent)"} · accountStatus: ${m.accountStatus ?? "(absent)"}`);
+results.push({ step: "me-keys", keys: Object.keys(m).sort(), features, accountStatus: m.accountStatus ?? null, permissions: Array.isArray(m.permissions) ? m.permissions : null });
 
 // ---------------------------------------------------------------- 2. Profile
 const profile = isSub
@@ -179,10 +195,12 @@ const clients = await call("clients: list", "consumidores", BUSINESS, "/v1/consu
 await call("clients: page 2", "consumidores", BUSINESS, "/v1/consumidores", { query: { page: 2, perPage: 20 } });
 await call("clients: search", "consumidores", BUSINESS, "/v1/consumidores", { query: { nome: "a", page: 1, perPage: 20 } });
 await call("clients: filter", "consumidores", BUSINESS, "/v1/consumidores", { query: { status: "APROVADO", page: 1, perPage: 20 } });
+await call("clients: city/UF", "consumidores", BUSINESS, "/v1/consumidores", { query: { uf: "SP", page: 1, perPage: 20 } });
 const firstClient = clients.list?.[0]?.id;
 if (firstClient) {
   await call("clients: detail", "consumidores/{id}", BUSINESS, `/v1/consumidores/${firstClient}`);
   await call("clients: journey", "none", BUSINESS, `/v1/acompanhamento/${firstClient}`);
+  await call("clients: documents", "documentos", BUSINESS, "/v1/documentos", { query: { proprietario_tipo: "CONSUMIDOR", consumidor_id: firstClient, page: 1, per_page: 50 } });
 }
 await call("clients: not-mine → 403/404", "none", BUSINESS, "/v1/consumidores/00000000-0000-4000-8000-000000000000");
 await call("journey: board", "acompanhamento/cards", BUSINESS, "/v1/acompanhamento/cards", { query: { page: 1, perPage: 100 } });
@@ -198,6 +216,8 @@ if (isSub && commissions.list?.some((item) => "valor_comissao" in item)) {
 }
 const payments = await call(isSub ? "payments (expect 403)" : "payments: list", "pagamentos-licenciados", BUSINESS, "/v1/pagamentos-licenciados", { query: { page: 1, per_page: 50 } });
 if (!isSub && payments.list?.[0]?.id) await call("payments: statement", "none", BUSINESS, `/v1/pagamentos-licenciados/${payments.list[0].id}/extrato`);
+const paid = !isSub ? payments.list?.find((item) => item.status === "PAGO") : null;
+if (paid?.id) await call("payments: receipt", "none", BUSINESS, `/v1/pagamentos-licenciados/${paid.id}/comprovante`);
 
 // ---------------------------------------------------------------- 10–11. Team & invitations
 const team = await call(isSub ? "team (expect 403)" : "team: members", "sublicenciados/equipe", BUSINESS, "/v1/sublicenciados/equipe");
@@ -207,13 +227,14 @@ await call("invitations: list", "none", BUSINESS, "/v1/sublicenciados/convites")
 // ---------------------------------------------------------------- 12–13. Onboarding & documents
 if (ownId) {
   await call("onboarding: status", "onboarding", BUSINESS, isSub ? `/v1/onboarding/sublicenciado/${ownId}` : `/v1/onboarding/licenciado/${ownId}`);
-  await call(
+  const ownDocs = await call(
     "documents: mine",
     "documentos",
     BUSINESS,
     "/v1/documentos",
     { query: isSub ? { proprietario_tipo: "SUBLICENCIADO", sublicenciado_id: ownId, page: 1, per_page: 50 } : { proprietario_tipo: "LICENCIADO", licenciado_id: ownId, page: 1, per_page: 50 } }
   );
+  if (ownDocs.list?.[0]?.id) await call("documents: signed url", "none", BUSINESS, `/v1/documentos/${ownDocs.list[0].id}/signed-url`);
 }
 if (licenciadoId) await call("dashboard", "dashboard", BUSINESS, `/v1/dashboards/licenciado-central/${licenciadoId}`);
 
@@ -227,6 +248,9 @@ await call("marketplace: context", "pedidos/me/context", BUSINESS, "/v1/pedidos/
 await call("marketplace: products", "none", BUSINESS, "/v1/produtos", { query: { tipo_publico: "LICENCIADO", ativo: true, page: 1, per_page: 100 } });
 await call("marketplace: orders", "none", BUSINESS, "/v1/pedidos", { query: { page: 1, per_page: 100 } });
 await call("app status", "none", BUSINESS, "/v1/app/status", { auth: false });
+await call("settings: notification prefs", "none", BUSINESS, "/v1/licenciado-settings/me/notification-preferences");
+await call("settings: preferences", "none", BUSINESS, "/v1/licenciado-settings/me/preferences");
+await call("support: whatsapp number", "none", BUSINESS, "/v1/client-configuracoes/whatsapp-atendimento");
 
 finish();
 

@@ -1,3 +1,4 @@
+import * as Linking from "expo-linking";
 import { router } from "expo-router";
 import { useState } from "react";
 import { Alert, View } from "react-native";
@@ -12,29 +13,74 @@ import { Card } from "@/components/ui/Card";
 import { ChipGroup } from "@/components/ui/Chip";
 import { ListRow } from "@/components/ui/ListRow";
 import { formatDateTime } from "@/lib/format";
+import { useDebouncedValue } from "@/lib/useDebouncedValue";
 import { ticketStatusLabel } from "@/lib/status-labels";
 import { userMessage } from "@/services/api/errors";
 import { spacing } from "@/theme/tokens";
 
-import { TICKET_CATEGORIES, type TicketCategory } from "../support.service";
-import { useCreateTicket, useResolveTicket, useSendTicketMessage, useTicket, useTicketMessages, useTickets } from "../useSupport";
+import { TICKET_CATEGORIES, whatsappSupportUrl, type TicketCategory, type TicketStatus } from "../support.service";
+import {
+  useCreateTicket,
+  useResolveTicket,
+  useSendTicketMessage,
+  useTicket,
+  useTicketMessages,
+  useTickets,
+  useWhatsappSupport
+} from "../useSupport";
 
 /** Route prefix of the area hosting support ("/support" approved, "/pending/support" pending). */
 export type SupportBase = "/support" | "/pending/support";
 
 const categoryLabel = (value: string) => TICKET_CATEGORIES.find((item) => item.value === value)?.label ?? "Outros";
 
+type StatusFilter = "ALL" | TicketStatus;
+type CategoryFilter = "ALL" | TicketCategory;
+const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
+  { value: "ALL", label: "Todos" },
+  { value: "AGUARDANDO", label: "Aguardando" },
+  { value: "EM_ATENDIMENTO", label: "Em atendimento" },
+  { value: "RESOLVIDO", label: "Resolvido" }
+];
+const CATEGORY_FILTERS: { value: CategoryFilter; label: string }[] = [{ value: "ALL", label: "Todas" }, ...TICKET_CATEGORIES];
+
+/** Portal floating WhatsApp button — shown only when the backend has a support number configured. */
+export function WhatsAppSupportButton() {
+  const whatsapp = useWhatsappSupport();
+  if (!whatsapp.data) return null;
+  return <Button label="Fale com a ACVEL pelo WhatsApp" variant="whatsapp" fullWidth onPress={() => void Linking.openURL(whatsappSupportUrl(whatsapp.data!))} />;
+}
+
 export function TicketList({ base }: { base: SupportBase }) {
-  const tickets = useTickets();
+  const [status, setStatus] = useState<StatusFilter>("ALL");
+  const [category, setCategory] = useState<CategoryFilter>("ALL");
+  const [search, setSearch] = useState("");
+  const query = useDebouncedValue(search);
+  const tickets = useTickets({
+    status: status === "ALL" ? undefined : status,
+    category: category === "ALL" ? undefined : category,
+    query: query || undefined
+  });
   const items = tickets.data?.pages.flatMap((page) => page.items) ?? [];
+  const filtered = status !== "ALL" || category !== "ALL" || Boolean(query);
   const openNew = () => router.push(`${base}/new`);
   return (
     <View style={{ gap: spacing.md }}>
-      <Button label="Abrir chamado" fullWidth onPress={openNew} />
+      <WhatsAppSupportButton />
+      <Button label="Abrir ticket" fullWidth onPress={openNew} />
+      <TextField label="Buscar por protocolo" value={search} onChangeText={setSearch} autoCapitalize="characters" autoCorrect={false} />
+      <ChipGroup options={STATUS_FILTERS} value={status} onChange={setStatus} />
+      <ChipGroup options={CATEGORY_FILTERS} value={category} onChange={setCategory} />
       <QueryState
         query={tickets}
         isEmpty={() => items.length === 0}
-        empty={<EmptyState title="Nenhum chamado" message="Fale com a equipe ACVEL quando precisar." action={{ label: "Abrir chamado", onPress: openNew }} />}
+        empty={
+          filtered ? (
+            <AppText tone="muted">Nenhum ticket encontrado com esses filtros.</AppText>
+          ) : (
+            <EmptyState title="Nenhum ticket encontrado" message="Fale com a equipe ACVEL quando precisar." action={{ label: "Abrir ticket", onPress: openNew }} />
+          )
+        }
       >
         {() => (
           <Card>
@@ -78,9 +124,9 @@ export function NewTicketForm({ base }: { base: SupportBase }) {
 
   return (
     <View style={{ gap: spacing.md }}>
-      <AppText variant="calloutStrong">Assunto</AppText>
+      <AppText variant="calloutStrong">Categoria</AppText>
       <ChipGroup options={TICKET_CATEGORIES} value={category} onChange={setCategory} />
-      <TextField label="Título (opcional)" value={subject} onChangeText={setSubject} />
+      <TextField label="Assunto (opcional)" value={subject} onChangeText={setSubject} />
       <TextField label="Mensagem" value={message} onChangeText={setMessage} multiline numberOfLines={5} error={error} />
       <AppText variant="caption" tone="muted">
         Envio de anexos ainda não está disponível no aplicativo.
@@ -118,7 +164,7 @@ export function TicketConversation({ ticketId }: { ticketId: string }) {
               </View>
             </Card>
           ) : (
-            <AppText tone="muted">Chamado não encontrado.</AppText>
+            <AppText tone="muted">Ticket não encontrado.</AppText>
           )
         }
       </QueryState>
@@ -158,14 +204,14 @@ export function TicketConversation({ ticketId }: { ticketId: string }) {
             }}
           />
           <Button
-            label="Marcar como resolvido"
+            label="Fechar como resolvido"
             variant="ghost"
             fullWidth
             loading={resolve.isPending}
             onPress={() =>
-              Alert.alert("Encerrar chamado?", "Você pode abrir um novo chamado quando precisar.", [
+              Alert.alert("Confirmar resolução", "Essa ação finaliza o atendimento.", [
                 { text: "Cancelar", style: "cancel" },
-                { text: "Encerrar", onPress: () => resolve.mutate() }
+                { text: "Resolver ticket", onPress: () => resolve.mutate() }
               ])
             }
           />

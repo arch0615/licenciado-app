@@ -25,9 +25,9 @@ export function getNotificationSummary(api: ApiClient): Promise<NotificationSumm
   return api.get<NotificationSummary>("/v1/notifications/me/summary");
 }
 
-export async function listNotifications(api: ApiClient, onlyUnread: boolean, page: number): Promise<Page<NotificationItem>> {
+export async function listNotifications(api: ApiClient, onlyUnread: boolean, page: number, query?: string): Promise<Page<NotificationItem>> {
   const body = await api.get<unknown>("/v1/notifications/me", {
-    query: { page, pageSize: NOTIFICATIONS_PAGE_SIZE, onlyUnread: String(onlyUnread) }
+    query: { page, pageSize: NOTIFICATIONS_PAGE_SIZE, onlyUnread: String(onlyUnread), query: query?.trim() || undefined }
   });
   return toPage<NotificationItem>(body, { page, pageSize: NOTIFICATIONS_PAGE_SIZE });
 }

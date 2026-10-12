@@ -27,6 +27,7 @@ export default function PendingLayout() {
       <Tabs.Screen name="support/new" options={{ href: null }} />
       <Tabs.Screen name="support/[ticketId]" options={{ href: null }} />
       <Tabs.Screen name="course/[courseId]" options={{ href: null }} />
+      <Tabs.Screen name="onboarding" options={{ href: null }} />
     </Tabs>
   );
 }

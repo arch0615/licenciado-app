@@ -24,11 +24,18 @@ export type Client = {
   total_ucs_vinculadas?: number | null;
 };
 
+/**
+ * `vinculos_uc` item. The live API returns only `{ id, consumidor_id, uc_id, ativo, data_inicio, data_fim }`,
+ * where `uc_id` is an internal UUID (not the UC number). `uc_numero` / `numero` / nested `uc` are optional
+ * (legacy contract). Use `ucLinkLabel()`.
+ */
 export type ClientUcLink = {
   id: string;
-  uc_numero: string;
+  uc_id?: string | null;
+  uc_numero?: string | null;
+  numero?: string | null;
   ativo: boolean;
-  uc: { concessionaria: string | null; cidade: string | null; uf: string | null } | null;
+  uc?: { concessionaria: string | null; cidade: string | null; uf: string | null } | null;
 };
 
 export type ClientDetail = Client & {
@@ -44,17 +51,6 @@ export type ClientFilters = {
   uf?: string;
 };
 
-/** C3 body. Tenant, owner and user ids are never sent: the backend derives them from the token. */
-export type CreateClientInput = {
-  tipo_pessoa: "FISICA" | "JURIDICA";
-  nome_completo: string;
-  razao_social?: string;
-  cpf?: string;
-  cnpj?: string;
-  email: string;
-  telefone: string;
-  celular?: string;
-};
 
 export type JourneyStepState = "DONE" | "CURRENT" | "PENDING" | "BLOCKED" | "SKIPPED";
 export type JourneyStep = { key: string; label: string; state: JourneyStepState; date?: string | null; detail?: string | null };
@@ -71,6 +67,8 @@ export type ClientJourneyCard = {
   hasDocumentPending: boolean;
   hasInvoiceOverdue: boolean;
   metrics: { totalUcs: number; totalUcsAtivas: number; totalUcsCompensando: number; totalInvoicesOverdue: number };
+  /** Live: `{ ucId, ucNumber, statusUc, compensando }`; `ucId` matches `vinculos_uc[].uc_id`. */
+  ucsPreview?: { ucId?: string | null; ucNumber?: string | null; statusUc?: string | null; compensando?: boolean | null }[];
   badges: string[];
   lastActionLabel: string | null;
   lastActionAt: string | null;
@@ -78,6 +76,18 @@ export type ClientJourneyCard = {
   journeyStage?: string | null;
   journeyStageOrder?: number | null;
   clientJourney?: JourneyStep[];
+  journeySubStatus?: string | null;
+  /** Live T3 extras shown by the portal journey modal. */
+  invoices?: { invoiceId?: string | null; ucId?: string | null; competency?: string | null; status?: string | null; dueAt?: string | null; totalValue?: number | null }[];
+  geradorInterest?: { hasOpenRequest?: boolean | null; requestStatus?: string | null } | null;
+  solicitacoesUc?: {
+    id: string;
+    numeroUc?: string | null;
+    concessionaria?: string | null;
+    status?: string | null;
+    motivoReprovacao?: string | null;
+    contrato?: { status?: string | null; signingUrl?: string | null } | null;
+  }[];
 };
 
 /** T4 pending action (snake_case in the backend). */

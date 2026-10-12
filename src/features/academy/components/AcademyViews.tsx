@@ -1,5 +1,6 @@
 import * as Linking from "expo-linking";
 import { router } from "expo-router";
+import { useState } from "react";
 import { View } from "react-native";
 
 import { QueryState } from "@/components/states/QueryState";
@@ -7,11 +8,14 @@ import { AppText } from "@/components/ui/AppText";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { ChipGroup } from "@/components/ui/Chip";
 import { ListRow } from "@/components/ui/ListRow";
 import { userMessage } from "@/services/api/errors";
-import { spacing } from "@/theme/tokens";
+import { formatNumber } from "@/lib/format";
+import { useTheme } from "@/theme/ThemeProvider";
+import { radius, spacing } from "@/theme/tokens";
 
-import type { CourseStatus } from "../academy.service";
+import type { CourseStatus, TrainingSummary } from "../academy.service";
 import { useCompleteLesson, useCourse, useCourses, useLessons, useTrainingSummary } from "../useAcademy";
 
 /** Route of the course detail in the hosting area. */
@@ -25,28 +29,99 @@ const STATUS: Record<CourseStatus, { label: string; tone: "neutral" | "highlight
 
 const isHttps = (url: string | null | undefined): url is string => typeof url === "string" && url.startsWith("https://");
 
+const CATEGORY_FILTERS = [
+  { value: "ALL", label: "Todas as categorias" },
+  { value: "Onboarding", label: "Onboarding" },
+  { value: "Operacao", label: "Operação" },
+  { value: "Comercial", label: "Comercial" },
+  { value: "Produto", label: "Produto" },
+  { value: "Financeiro", label: "Financeiro" }
+];
+const LEVEL_FILTERS = [
+  { value: "ALL", label: "Todos os níveis" },
+  { value: "Basico", label: "Básico" },
+  { value: "Intermediario", label: "Intermediário" },
+  { value: "Avancado", label: "Avançado" }
+];
+const STATUS_FILTERS = [
+  { value: "ALL", label: "Todos" },
+  { value: "nao_iniciado", label: "Não iniciado" },
+  { value: "em_andamento", label: "Em andamento" },
+  { value: "concluido", label: "Concluído" }
+];
+
+/** Portal /treinamentos/progresso: KPIs + per-course progress (values from GET /v1/training/summary). */
+function TrainingProgress({ summary }: { summary: TrainingSummary }) {
+  const { colors } = useTheme();
+  return (
+    <Card variant="hero">
+      <View style={{ gap: spacing.xs }}>
+        <AppText variant="overline" tone="muted">
+          Seu progresso
+        </AppText>
+        <AppText variant="bodyStrong">
+          {summary.coursesCompleted} cursos concluídos · {summary.coursesInProgress} em andamento
+        </AppText>
+        <AppText variant="caption" tone="muted">
+          Nível atual: {summary.currentLevel} · {formatNumber(summary.studiedHours)} horas estudadas
+        </AppText>
+        {summary.byCourse.map((course) => (
+          <View key={course.courseId} style={{ gap: 2 }}>
+            <AppText variant="caption">
+              {course.courseTitle} · {formatNumber(course.percent)}%
+            </AppText>
+            <View style={{ height: 6, borderRadius: radius.full, backgroundColor: colors.muted }}>
+              <View
+                style={{
+                  width: `${Math.min(100, Math.max(0, course.percent))}%`,
+                  height: 6,
+                  borderRadius: radius.full,
+                  backgroundColor: colors.primary
+                }}
+              />
+            </View>
+          </View>
+        ))}
+        <AppText variant="caption" tone="muted">
+          Certificados ainda não estão disponíveis.
+        </AppText>
+      </View>
+    </Card>
+  );
+}
+
 export function CourseList({ courseRoute }: { courseRoute: CourseRoute }) {
-  const courses = useCourses();
+  const allCourses = useCourses();
   const summary = useTrainingSummary();
+  const [category, setCategory] = useState("ALL");
+  const [level, setLevel] = useState("ALL");
+  const [status, setStatus] = useState("ALL");
+  // Filters stay visible even when the result is empty (the portal hides them — a known portal bug).
+  const courses = {
+    ...allCourses,
+    data: allCourses.data?.filter(
+      (course) =>
+        (category === "ALL" || course.category === category) &&
+        (level === "ALL" || course.level === level) &&
+        (status === "ALL" || course.status === status)
+    )
+  } as typeof allCourses;
   return (
     <View style={{ gap: spacing.md }}>
-      {summary.data ? (
-        <Card variant="hero">
-          <AppText variant="overline" tone="muted">
-            Seu progresso
-          </AppText>
-          <AppText variant="bodyStrong">
-            {summary.data.coursesCompleted} concluído(s) · {summary.data.coursesInProgress} em andamento
-          </AppText>
-          <AppText variant="caption" tone="muted">
-            Nível: {summary.data.currentLevel}
-          </AppText>
-        </Card>
-      ) : null}
+      {summary.data ? <TrainingProgress summary={summary.data} /> : null}
+      <ChipGroup options={CATEGORY_FILTERS} value={category} onChange={setCategory} />
+      <ChipGroup options={LEVEL_FILTERS} value={level} onChange={setLevel} />
+      <ChipGroup options={STATUS_FILTERS} value={status} onChange={setStatus} />
       <QueryState
         query={courses}
         isEmpty={(list) => list.length === 0}
-        empty={<AppText tone="muted">Nenhum curso disponível no momento.</AppText>}
+        empty={
+          <AppText tone="muted">
+            {category !== "ALL" || level !== "ALL" || status !== "ALL"
+              ? "Não encontramos cursos para os filtros selecionados."
+              : "Nenhum curso disponível no momento."}
+          </AppText>
+        }
       >
         {(list) => (
           <Card>
@@ -84,7 +159,7 @@ export function CourseDetail({ courseId }: { courseId: string }) {
           )
         }
       </QueryState>
-      <QueryState query={lessons} isEmpty={(list) => list.length === 0} empty={<AppText tone="muted">Sem aulas.</AppText>}>
+      <QueryState query={lessons} isEmpty={(list) => list.length === 0} empty={<AppText tone="muted">Sem aulas cadastradas para este curso.</AppText>}>
         {(list) => (
           <View style={{ gap: spacing.sm }}>
             {list.map((lesson) => {

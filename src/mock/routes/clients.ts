@@ -117,36 +117,6 @@ export const clientRoutes: MockRoute[] = [
       return { data, meta: { total: filtered.length, page, perPage } };
     }
   },
-  {
-    method: "POST",
-    path: "/v1/consumidores",
-    handler: ({ request }) => {
-      requireApproved();
-      const body = request.body as { nome_completo: string; razao_social?: string; tipo_pessoa: "FISICA" | "JURIDICA"; cpf?: string; email: string };
-      if (body.cpf === "11111111111") {
-        throw new ApiError({ status: 409, code: "CONSUMIDOR_JA_CADASTRADO", message: "Este cliente já está cadastrado." });
-      }
-      const id = `cli-${clients.length + 1}`;
-      clients.unshift({
-        id,
-        tipo_pessoa: body.tipo_pessoa,
-        nome_completo: body.nome_completo,
-        razao_social: body.razao_social ?? null,
-        documento: null,
-        cpf: null,
-        cnpj: null,
-        telefone: null,
-        celular: null,
-        email: body.email,
-        cidade: null,
-        uf: null,
-        status: "PENDENTE_APROVACAO",
-        created_at: new Date().toISOString(),
-        vinculos_uc: []
-      });
-      return { id };
-    }
-  },
   { method: "GET", path: "/v1/consumidores/:id", handler: ({ params }) => (requireApproved(), findClient(params.id)) },
   {
     method: "GET",

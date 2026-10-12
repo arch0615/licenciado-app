@@ -1,4 +1,4 @@
-import { keepPreviousData, useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useInfiniteQuery, useMutation, useQuery } from "@tanstack/react-query";
 
 import { hasPermission } from "@/features/auth/permissions";
 import { useAuthenticatedContext } from "@/features/auth/SessionProvider";
@@ -9,6 +9,7 @@ import { api } from "@/services/runtime";
 import {
   getCommission,
   getCommissionSummary,
+  getPaymentReceipt,
   getPaymentStatement,
   listCommissions,
   listPayments
@@ -55,4 +56,9 @@ export function usePaymentStatement(paymentId: string) {
     queryKey: queryKeys.user(uid, "payments", "statement", paymentId),
     queryFn: () => getPaymentStatement(api, paymentId)
   });
+}
+
+/** Loads the textual receipt on demand (GET only). */
+export function usePaymentReceipt() {
+  return useMutation({ mutationFn: (paymentId: string) => getPaymentReceipt(api, paymentId) });
 }

@@ -2,7 +2,8 @@ import type { LicenciadoProfile, SublicenciadoProfile } from "@/features/profile
 import { ApiError, isApiError } from "@/services/api/errors";
 import type { ApiClient } from "@/services/api/types";
 
-import type { AccountRole, AccountStatus, AppStatus, ApprovalStatus, AuthMe, Permission } from "./types";
+import { normalizePermissions } from "./permissions";
+import type { AccountRole, AccountStatus, AppStatus, ApprovalStatus, AuthMe } from "./types";
 
 const ACCOUNT_ROLES = ["LICENCIADO", "SUBLICENCIADO", "STAFF"] as const;
 const ACCOUNT_STATUSES = [
@@ -81,9 +82,14 @@ export function normalizeAuthMe(body: unknown): Omit<AuthMe, "approvalStatus"> &
   const userId = str(raw.userId) ?? str(raw.user_id) ?? str(raw.uid) ?? str(raw.sub);
   const role = resolveRole(raw);
   if (!userId || !role) throw forbidden();
-  const permissions = Array.isArray(raw.permissions)
-    ? raw.permissions.filter((entry): entry is Permission => typeof entry === "string")
-    : null;
+  const mapped = normalizePermissions(raw.permissions);
+  // Portal rule: Academy is shown to every licenciado and representative, and the live training
+  // endpoints authorize them (GET /v1/training/* → 200, 2026-10-06), but /auth/me lists no training
+  // resource. Mirror the portal for these roles only; the backend still enforces every training call.
+  const permissions =
+    mapped && (role === "LICENCIADO" || role === "SUBLICENCIADO") && !mapped.includes("training:use")
+      ? [...mapped, "training:use" as const]
+      : mapped;
   return {
     userId,
     uid: str(raw.uid) ?? userId,

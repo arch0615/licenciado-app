@@ -28,11 +28,36 @@ if (APP_ENV === "production" && process.env.EAS_BUILD === "true" && (!iosGoogleS
   throw new Error("Production builds need firebase/GoogleService-Info.plist and firebase/google-services-android.json.");
 }
 
+/**
+ * Versioning: `version` is the user-facing marketing version (bump manually per release, semver).
+ * Build numbers (iOS buildNumber / Android versionCode) are managed remotely by EAS
+ * (`cli.appVersionSource: "remote"` + `autoIncrement` on the production profile in eas.json),
+ * so they never need to be edited here.
+ */
+const VERSION = "0.1.0";
+
+/**
+ * Permissions the app does not use. Some come from React Native / library defaults; blocking them keeps the
+ * store listing honest (documents are picked with the system picker, which needs no camera/storage access).
+ */
+const BLOCKED_ANDROID_PERMISSIONS = [
+  "android.permission.CAMERA",
+  "android.permission.RECORD_AUDIO",
+  "android.permission.READ_EXTERNAL_STORAGE",
+  "android.permission.WRITE_EXTERNAL_STORAGE",
+  "android.permission.READ_MEDIA_IMAGES",
+  "android.permission.READ_MEDIA_VIDEO",
+  "android.permission.READ_MEDIA_AUDIO",
+  "android.permission.SYSTEM_ALERT_WINDOW",
+  "android.permission.USE_BIOMETRIC",
+  "android.permission.USE_FINGERPRINT"
+];
+
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: APP_ENV === "production" ? "ACVEL Licenciado" : `ACVEL Licenciado (${APP_ENV})`,
   slug: "acvel-licenciado",
-  version: "0.1.0",
+  version: VERSION,
   orientation: "portrait",
   scheme: "acvel-licenciado",
   userInterfaceStyle: "automatic",
@@ -40,6 +65,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ios: {
     supportsTablet: true,
     bundleIdentifier: APP_ID,
+    config: { usesNonExemptEncryption: false },
     googleServicesFile: iosGoogleServicesFile
   },
   android: {
@@ -51,7 +77,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       backgroundImage: "./assets/android-icon-background.png",
       monochromeImage: "./assets/android-icon-monochrome.png"
     },
-    predictiveBackGestureEnabled: false
+    predictiveBackGestureEnabled: false,
+    blockedPermissions: BLOCKED_ANDROID_PERMISSIONS
   },
   plugins: [
     "expo-router",
@@ -62,7 +89,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       {
         backgroundColor: "#094496",
         image: "./assets/splash-icon.png",
-        imageWidth: 160,
+        imageWidth: 240,
         dark: { backgroundColor: "#0C1322", image: "./assets/splash-icon.png" }
       }
     ]

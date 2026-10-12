@@ -58,7 +58,7 @@ export default function RecoverScreen() {
                 </AppText>
               </Card>
             ) : null}
-            <Button label="Enviar link" size="lg" fullWidth loading={reset.isPending} onPress={handleSubmit} />
+            <Button label="Enviar link de recuperação" size="lg" fullWidth loading={reset.isPending} onPress={handleSubmit} />
           </>
         )}
       </View>

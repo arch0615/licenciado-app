@@ -106,9 +106,10 @@ export function createHttpTransport(options: HttpTransportOptions): ApiTransport
     }
   }
 
-  async function parse<T>(response: Response): Promise<T> {
+  async function parse<T>(response: Response, responseType: ApiRequest["responseType"] = "json"): Promise<T> {
     const requestId = response.headers.get("x-request-id");
     const text = response.status === 204 ? "" : await response.text();
+    if (response.ok && responseType === "text") return text as T;
     let body: unknown = null;
     if (text) {
       try {
@@ -135,7 +136,7 @@ export function createHttpTransport(options: HttpTransportOptions): ApiTransport
       const authenticated = request.authenticated !== false;
       const token = authenticated ? await options.tokens.getIdToken(false) : null;
       if (authenticated && !token) {
-        throw new ApiError({ status: 401, code: "MISSING_TOKEN", message: "Sua sessão expirou. Entre novamente." });
+        throw new ApiError({ status: 401, code: "MISSING_TOKEN", message: "Sua sessão expirou. Faça login novamente." });
       }
 
       let response = await sendWithRetry(baseUrl, request, token);
@@ -144,7 +145,7 @@ export function createHttpTransport(options: HttpTransportOptions): ApiTransport
         if (refreshed) response = await sendWithRetry(baseUrl, request, refreshed);
         if (response.status === 401) options.onUnauthorized?.();
       }
-      return parse<T>(response);
+      return parse<T>(response, request.responseType);
     }
   };
 }

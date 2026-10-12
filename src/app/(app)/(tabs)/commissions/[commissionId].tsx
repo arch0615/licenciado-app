@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { Screen } from "@/components/ui/Screen";
 import { useAuthenticatedContext } from "@/features/auth/SessionProvider";
+import { commissionEligibility } from "@/features/commissions/commission.service";
 import { useCommission } from "@/features/commissions/useCommissions";
 import { formatCompetencia, formatCurrency, formatDate } from "@/lib/format";
 import { commissionStatusLabel } from "@/lib/status-labels";
@@ -31,7 +32,7 @@ export default function CommissionDetailScreen() {
 
   return (
     <Screen edges={["left", "right"]}>
-      <Stack.Screen options={{ title: "Comissão" }} />
+      <Stack.Screen options={{ title: "Detalhe do lançamento" }} />
       <QueryState query={commission}>
         {(item) => {
           const status = commissionStatusLabel(item.status);
@@ -58,6 +59,31 @@ export default function CommissionDetailScreen() {
                   <Row label="Paga em" value={formatDate(item.data_pagamento)} />
                 </View>
               </Card>
+              {(() => {
+                const rule = commissionEligibility(item);
+                return (
+                  <Card>
+                    <View style={{ gap: 2 }}>
+                      <AppText variant="overline" tone="muted">
+                        Critérios de geração
+                      </AppText>
+                      {rule.available ? (
+                        <>
+                          <AppText variant="callout">{rule.isCompensating ? "✅" : "❌"} Cliente compensando</AppText>
+                          <AppText variant="callout">{rule.invoicePaid ? "✅" : "❌"} Fatura paga</AppText>
+                          <AppText variant="callout">
+                            {rule.customerStatus === "ATIVO_COMPENSANDO" ? "✅" : "❌"} Status ativo e compensando
+                          </AppText>
+                        </>
+                      ) : (
+                        <AppText variant="callout" tone="muted">
+                          Critérios indisponíveis para este lançamento.
+                        </AppText>
+                      )}
+                    </View>
+                  </Card>
+                );
+              })()}
               {item.regra_aplicada?.motivo ? (
                 <Card variant="alert" tone={item.regra_aplicada.elegivel ? "success" : "info"}>
                   <AppText variant="callout">{item.regra_aplicada.motivo}</AppText>

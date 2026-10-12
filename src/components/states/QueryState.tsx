@@ -19,7 +19,7 @@ export function PermissionState({ message }: { message?: string }) {
       <View style={{ flexDirection: "row", gap: spacing.sm, alignItems: "flex-start" }}>
         <Lock size={20} color={colors.warning} />
         <View style={{ flex: 1, gap: 2 }}>
-          <AppText variant="bodyStrong">Acesso não permitido</AppText>
+          <AppText variant="bodyStrong">Acesso bloqueado</AppText>
           <AppText variant="callout" tone="muted">
             {message ?? "Você não tem permissão para ver este conteúdo."}
           </AppText>

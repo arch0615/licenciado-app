@@ -1,8 +1,12 @@
-import { useLocalSearchParams } from "expo-router";
-import { Share } from "react-native";
+import { router, useLocalSearchParams } from "expo-router";
+import { useState } from "react";
+import { Share, View } from "react-native";
+
+import { TextField } from "@/components/forms/TextField";
 
 import { EmptyState, ErrorState, LoadingState } from "@/components/states/States";
 import { AppText } from "@/components/ui/AppText";
+import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Screen } from "@/components/ui/Screen";
 import { RegisterForm } from "@/features/auth/components/RegisterForm";
@@ -12,6 +16,7 @@ import {
   useRegisterSublicenciado
 } from "@/features/auth/useAuthActions";
 import { isApiError } from "@/services/api/errors";
+import { spacing } from "@/theme/tokens";
 
 const formatDate = (iso: string) => new Date(iso).toLocaleDateString("pt-BR");
 
@@ -51,15 +56,30 @@ export default function RegisterSublicenciadoScreen() {
   const invitation = useInvitationValidation(convite);
   const code = useLicenciadoCodeValidation(convite ? undefined : codigo);
   const register = useRegisterSublicenciado();
+  const [typedCode, setTypedCode] = useState("");
 
   if (!convite && !codigo) {
+    // Portal /auth/register/sublicenciado: the licenciado code can be typed when the link doesn't carry it.
     return (
       <Screen edges={["bottom", "left", "right"]}>
-        <EmptyState
-          title="Nenhum convite encontrado"
-          message="Abra o link enviado pelo seu licenciado ou peça um novo."
-          action={{ label: "Pedir um link", onPress: askForNewInvite }}
-        />
+        <View style={{ gap: spacing.md }}>
+          <AppText tone="muted">Informe o código do licenciado que convidou você, ou abra o link de cadastro que ele enviou.</AppText>
+          <TextField
+            label="Código do licenciado"
+            value={typedCode}
+            onChangeText={setTypedCode}
+            autoCapitalize="characters"
+            autoCorrect={false}
+          />
+          <Button
+            label="Continuar"
+            size="lg"
+            fullWidth
+            disabled={typedCode.trim().length < 3}
+            onPress={() => router.setParams({ codigo: typedCode.trim().toUpperCase() })}
+          />
+          <Button label="Pedir um link ao licenciado" variant="ghost" fullWidth onPress={askForNewInvite} />
+        </View>
       </Screen>
     );
   }

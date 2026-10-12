@@ -32,7 +32,7 @@ export function requireApproved(): AuthMe {
 
 const notFound = () => new ApiError({ status: 404, code: "ACCOUNT_NOT_FOUND", message: "Cadastro não encontrado." });
 
-const profileEdits = new Map<string, { nome_completo?: string; telefone?: string }>();
+const profileEdits = new Map<string, Partial<Pick<LicenciadoProfile, "nome_completo" | "telefone">>>();
 
 function licenciadoProfile(me: AuthMe): LicenciadoProfile {
   if (!me.licenciadoId || !me.accountStatus) throw notFound();
@@ -97,15 +97,15 @@ function sublicenciadoProfile(me: AuthMe): SublicenciadoProfile {
       nome_fantasia: "Maria Energia",
       cnpj: "12.345.678/0001-90",
       status: "APROVADO"
-    },
-    ...profileEdits.get(me.userId)
+    }
   };
 }
+
 
 function applyEdit(body: unknown): void {
   const me = currentMe();
   const { nome_completo, telefone } = (body ?? {}) as { nome_completo?: string; telefone?: string };
-  profileEdits.set(me.userId, { ...profileEdits.get(me.userId), nome_completo, telefone });
+  profileEdits.set(me.userId, { ...profileEdits.get(me.userId), ...(nome_completo ? { nome_completo } : {}), ...(telefone ? { telefone } : {}) });
 }
 
 let deletionRequestedAt: string | null = null;
@@ -114,21 +114,15 @@ export const accountRoutes: MockRoute[] = [
   { method: "GET", path: "/v1/licenciados/me", handler: () => licenciadoProfile(requireRole("LICENCIADO")) },
   {
     method: "PATCH",
-    path: "/v1/licenciados/me",
-    handler: ({ request }) => {
+    path: "/v1/licenciados/:id",
+    handler: ({ params, request }) => {
+      const me = requireRole("LICENCIADO");
+      if (params.id !== me.licenciadoId) throw new ApiError({ status: 403, code: "FORBIDDEN", message: "Sem permissão." });
       applyEdit(request.body);
-      return licenciadoProfile(requireRole("LICENCIADO"));
+      return licenciadoProfile(me);
     }
   },
-  { method: "GET", path: "/v1/sublicenciados/me", handler: () => sublicenciadoProfile(requireRole("SUBLICENCIADO")) },
-  {
-    method: "PATCH",
-    path: "/v1/sublicenciados/me",
-    handler: ({ request }) => {
-      applyEdit(request.body);
-      return sublicenciadoProfile(requireRole("SUBLICENCIADO"));
-    }
-  },
+  { method: "PUT", path: "/v1/auth/profile", handler: () => (currentMe(), { ok: true }) },
   {
     method: "POST",
     path: "/v1/licenciados/bootstrap-me",
@@ -139,6 +133,16 @@ export const accountRoutes: MockRoute[] = [
       return licenciadoProfile(me);
     }
   },
+  {
+    method: "POST",
+    path: "/v1/sublicenciados/bootstrap-me",
+    handler: () => {
+      const me = requireRole("SUBLICENCIADO");
+      Object.assign(me, { sublicenciadoId: "sub-3", accountStatus: "PENDENTE_APROVACAO", approvalStatus: "NOT_APPROVED" });
+      return { id: "sub-3" };
+    }
+  },
+  { method: "GET", path: "/v1/sublicenciados/me", handler: () => sublicenciadoProfile(requireRole("SUBLICENCIADO")) },
   {
     method: "GET",
     path: "/v1/licenciados/me/contrato",
@@ -196,6 +200,15 @@ export const accountRoutes: MockRoute[] = [
     handler: ({ request }) => {
       const { email, displayName } = request.body as { email: string; displayName?: string | null };
       return { user: { userId: "u-new-sub", email, displayName: displayName ?? null } };
+    }
+  },
+  {
+    method: "POST",
+    path: "/v1/sublicenciados/validate-codigo",
+    handler: ({ request }) => {
+      const { codigo_licenciado } = (request.body ?? {}) as { codigo_licenciado?: string };
+      if (codigo_licenciado !== "LIC-4821") throw new ApiError({ status: 404, code: "NOT_FOUND", message: "Código não encontrado." });
+      return { valid: true, licenciado: { nome_fantasia: "Maria Energia" } };
     }
   },
   {

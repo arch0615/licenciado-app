@@ -1,17 +1,31 @@
 import { router, type Href } from "expo-router";
-import { View } from "react-native";
+import { Alert, Linking, View } from "react-native";
 
 import { ScreenHeader } from "@/components/navigation/ScreenHeader";
 import { AppText } from "@/components/ui/AppText";
 import { Card } from "@/components/ui/Card";
 import { ListRow } from "@/components/ui/ListRow";
 import { Screen } from "@/components/ui/Screen";
+import { consumerInvoicesUrl } from "@/config/links";
 import { hasPermission } from "@/features/auth/permissions";
 import { useAuthenticatedContext } from "@/features/auth/SessionProvider";
 import { AccountSection } from "@/features/profile/AccountSection";
 import { spacing } from "@/theme/tokens";
 
-type Item = { title: string; subtitle?: string; href: Href; visible: boolean };
+type Item = { title: string; subtitle?: string; href?: Href; onPress?: () => void; visible: boolean };
+
+/**
+ * Portal "Minhas Faturas": confirm, then open the consumer portal's invoice list ({CONSUMIDOR_APP_URL}/faturas).
+ * The portal asks for login when there is no session; invoice details are never deep-linked.
+ */
+function openConsumerApp() {
+  const url = consumerInvoicesUrl();
+  if (!url) return;
+  Alert.alert("Abrir Minhas Faturas?", "Você será levado ao app do consumidor ACVEL.", [
+    { text: "Cancelar", style: "cancel" },
+    { text: "Abrir", onPress: () => void Linking.openURL(url) }
+  ]);
+}
 
 /** Mais — profile header, grouped menu (Conta, Negócio, Ajuda), Aparência, Sair. */
 export default function MoreScreen() {
@@ -21,6 +35,8 @@ export default function MoreScreen() {
       title: "Conta",
       items: [
         { title: "Meus dados", href: "/more/profile", visible: hasPermission(me, "profile:read") },
+        { title: "Documentos", subtitle: "Documentos enviados e situação", href: "/more/documents", visible: hasPermission(me, "profile:read") },
+        { title: "Preferências", subtitle: "Canais de contato e privacidade", href: "/more/preferences", visible: role === "LICENCIADO" && hasPermission(me, "profile:read") },
         { title: "Segurança", subtitle: "Senha, dispositivos e exclusão de conta", href: "/more/security", visible: true },
         { title: "Termos e privacidade", subtitle: "Documentos legais e contrato", href: "/more/legal", visible: true }
       ]
@@ -40,14 +56,22 @@ export default function MoreScreen() {
           subtitle: "Troque seus pontos",
           href: "/marketplace",
           visible: hasPermission(me, "marketplace:use") && me.features?.marketplace === true
-        }
+        },
+        { title: "Minhas Faturas", subtitle: "Abre o app do consumidor", onPress: openConsumerApp, visible: Boolean(consumerInvoicesUrl()) }
       ]
     },
     {
       title: "Ajuda",
       items: [
-        { title: "Suporte", subtitle: "Chamados e mensagens", href: "/support", visible: hasPermission(me, "support:use") },
-        { title: "Notificações", href: "/notifications", visible: hasPermission(me, "notifications:read") }
+        { title: "Suporte", subtitle: "Tickets e mensagens", href: "/support", visible: hasPermission(me, "support:use") },
+        { title: "Notificações", href: "/notifications", visible: hasPermission(me, "notifications:read") },
+        {
+          title: "Preferências de notificação",
+          subtitle: "Escolha os avisos que quer receber",
+          href: "/more/notification-preferences",
+          // The settings API resolves a licenciado (404 for representatives).
+          visible: role === "LICENCIADO" && hasPermission(me, "notifications:read")
+        }
       ]
     }
   ];
@@ -65,7 +89,7 @@ export default function MoreScreen() {
                 {group.title}
               </AppText>
               {items.map((item) => (
-                <ListRow key={item.title} title={item.title} subtitle={item.subtitle} onPress={() => router.push(item.href)} />
+                <ListRow key={item.title} title={item.title} subtitle={item.subtitle} onPress={item.onPress ?? (() => item.href && router.push(item.href))} />
               ))}
             </View>
           </Card>

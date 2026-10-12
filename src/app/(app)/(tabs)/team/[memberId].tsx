@@ -7,9 +7,10 @@ import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { ListRow } from "@/components/ui/ListRow";
 import { Screen } from "@/components/ui/Screen";
+import { DocumentList } from "@/features/documents/components/DocumentList";
 import { useTeamMember } from "@/features/team/useTeam";
 import { formatCurrency, formatDate, formatNumber } from "@/lib/format";
-import { accountStatusLabel, documentStatusLabel } from "@/lib/status-labels";
+import { accountStatusLabel } from "@/lib/status-labels";
 import { spacing } from "@/theme/tokens";
 
 /** S27 — Detalhe do representante (GET /v1/sublicenciados/{id}, Swagger). */
@@ -43,29 +44,24 @@ export default function TeamMemberScreen() {
               </Card>
               <Card>
                 <ListRow title="Clientes" right={<AppText variant="bodyStrong">{formatNumber(data.total_consumidores)}</AppText>} />
-                <ListRow title="UCs" right={<AppText variant="bodyStrong">{formatNumber(data.total_ucs)}</AppText>} />
+                <ListRow title="UCs vinculadas" right={<AppText variant="bodyStrong">{formatNumber(data.total_ucs)}</AppText>} />
                 <ListRow
                   title="Comissão prevista no mês"
                   right={<AppText variant="bodyStrong">{formatCurrency(data.comissao_prevista_mes)}</AppText>}
                 />
               </Card>
-              <Card>
-                <AppText variant="overline" tone="muted">
-                  Documentos
-                </AppText>
-                {data.documentos.length === 0 ? <AppText tone="muted">Nenhum documento enviado.</AppText> : null}
-                {data.documentos.map((doc) => {
-                  const docStatus = documentStatusLabel(doc.status_validacao);
-                  return (
-                    <ListRow
-                      key={doc.id}
-                      title={doc.tipo}
-                      subtitle={doc.reprovado_motivo ?? doc.arquivo_nome}
-                      right={<Badge label={docStatus.label} tone={docStatus.tone} />}
-                    />
-                  );
-                })}
-              </Card>
+              <DocumentList
+                title="Documentos"
+                items={data.documentos.map((doc) => ({
+                  id: doc.id,
+                  tipo: doc.tipo,
+                  status_validacao: doc.status_validacao,
+                  reprovado_motivo: doc.reprovado_motivo,
+                  created_at: doc.created_at,
+                  arquivo_nome: doc.arquivo_nome
+                }))}
+                emptyText="Sem documentos vinculados."
+              />
             </View>
           );
         }}

@@ -8,20 +8,21 @@ import { api } from "@/services/runtime";
 
 import {
   createTicket,
+  getWhatsappSupportNumber,
   getTicket,
   listTicketMessages,
   listTickets,
   resolveTicket,
   sendTicketMessage,
   type TicketCategory,
-  type TicketStatus
+  type TicketFilters
 } from "./support.service";
 
-export function useTickets(status?: TicketStatus) {
+export function useTickets(filters: TicketFilters = {}) {
   const uid = useUserId();
   return useInfiniteQuery({
-    queryKey: queryKeys.user(uid, "support", "tickets", status ?? "all"),
-    queryFn: ({ pageParam }) => listTickets(api, status, pageParam),
+    queryKey: queryKeys.user(uid, "support", "tickets", filters),
+    queryFn: ({ pageParam }) => listTickets(api, filters, pageParam),
     initialPageParam: 1,
     getNextPageParam: (last) => (last.page * last.pageSize < last.total ? last.page + 1 : undefined)
   });
@@ -47,7 +48,7 @@ export function useCreateTicket() {
   const queryClient = useQueryClient();
   const key = useRef(newIdempotencyKey("ticket"));
   return useMutation({
-    mutationFn: (input: { category: TicketCategory; subject?: string; initialMessage?: string }) =>
+    mutationFn: (input: { category: TicketCategory; subject?: string; initialMessage?: string; clientId?: string }) =>
       createTicket(api, input, key.current),
     onSuccess: async () => {
       key.current = newIdempotencyKey("ticket");
@@ -75,5 +76,15 @@ export function useResolveTicket(ticketId: string) {
   return useMutation({
     mutationFn: () => resolveTicket(api, ticketId),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.user(uid, "support") })
+  });
+}
+
+/** WhatsApp support number; `null` = not configured (the UI hides the button). */
+export function useWhatsappSupport() {
+  const uid = useUserId();
+  return useQuery({
+    queryKey: queryKeys.user(uid, "support", "whatsapp"),
+    queryFn: () => getWhatsappSupportNumber(api),
+    staleTime: 10 * 60_000
   });
 }

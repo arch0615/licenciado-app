@@ -103,25 +103,55 @@ function courseState(): Course {
 }
 
 // ---------------------------------------------------------------- onboarding + documents (L*, S*, D*)
-const documents: DocumentItem[] = [];
-let onboardingStarted = false;
+// The pending personas start with an onboarding in progress and one rejected document.
+const documents: DocumentItem[] = [
+  { id: "doc-1", tipo: "RG", status_validacao: "REPROVADO", reprovado_motivo: "Foto ilegível. Envie novamente pelo portal.", created_at: "2026-09-20T12:00:00.000Z", arquivo_nome: "rg.jpg" },
+  { id: "doc-2", tipo: "CNPJ", status_validacao: "EM_ANALISE", reprovado_motivo: null, created_at: "2026-09-21T12:00:00.000Z", arquivo_nome: "cartao-cnpj.pdf" }
+];
+let onboardingStarted = true;
 let submitted = false;
+const completedSteps = new Set<string>();
+
+const STEP_CODES: Record<string, string> = {
+  "dados-pessoais": "DADOS_PESSOAIS",
+  "dados-profissionais": "DADOS_PROFISSIONAIS",
+  "dados-bancarios": "DADOS_BANCARIOS",
+  documentos: "DOCUMENTOS_ENVIADOS",
+  termos: "CONTRATO_ACEITO",
+  "conferencia-empresa": "CONFERENCIA_EMPRESA",
+  "dados-login": "DADOS_LOGIN"
+};
+
+function requiredSteps(): string[] {
+  return currentMe().tipoUsuarioResolvido === "SUBLICENCIADO"
+    ? ["CONTRATO_ACEITO", "CONFERENCIA_EMPRESA", "DADOS_LOGIN", "DOCUMENTOS_ENVIADOS", "DADOS_PESSOAIS"]
+    : ["DOCUMENTOS_ENVIADOS", "DADOS_PESSOAIS", "DADOS_PROFISSIONAIS", "DADOS_BANCARIOS", "CONTRATO_ACEITO"];
+}
+
+const PENDING_LABELS: Record<string, string> = {
+  DOCUMENTOS_ENVIADOS: "Enviar RG ou CNH",
+  DADOS_PESSOAIS: "Preencher dados pessoais",
+  DADOS_PROFISSIONAIS: "Preencher dados da empresa",
+  DADOS_BANCARIOS: "Preencher dados bancários",
+  CONTRATO_ACEITO: "Aceitar o contrato de licenciamento",
+  CONFERENCIA_EMPRESA: "Confirmar a empresa",
+  DADOS_LOGIN: "Confirmar os dados de acesso"
+};
 
 function onboardingState(): Onboarding {
-  const hasId = documents.some((doc) => doc.tipo === "RG" || doc.tipo === "CNH");
-  const pendencias = [
-    ...(hasId ? [] : ["Enviar RG ou CNH"]),
-    "Preencher dados pessoais",
-    "Aceitar o contrato de licenciamento"
-  ];
+  const hasId = documents.some((doc) => (doc.tipo === "RG" || doc.tipo === "CNH") && doc.status_validacao !== "REPROVADO");
+  const done = requiredSteps().filter((step) => completedSteps.has(step) && (step !== "DOCUMENTOS_ENVIADOS" || hasId));
+  const pendencias = requiredSteps()
+    .filter((step) => !done.includes(step))
+    .map((step) => PENDING_LABELS[step]!);
   return {
     id: "onb-1",
     status: submitted ? "EM_ANALISE" : "DRAFT",
-    etapa_atual: submitted ? "EM_ANALISE" : "DADOS_PESSOAIS",
-    etapas_concluidas: hasId ? ["DOCUMENTOS_ENVIADOS"] : [],
+    etapa_atual: submitted ? "EM_ANALISE" : (requiredSteps().find((step) => !done.includes(step)) ?? "REVISAO"),
+    etapas_concluidas: done,
     pendencias: submitted ? [] : pendencias,
-    progresso_percentual: hasId ? 25 : 0,
-    can_submit: false,
+    progresso_percentual: Math.round((done.length / requiredSteps().length) * 100), // mock backend's own figure
+    can_submit: !submitted && pendencias.length === 0,
     submitted,
     submitted_at: submitted ? new Date().toISOString() : null,
     updated_at: new Date().toISOString(),
@@ -256,19 +286,35 @@ export const engagementRoutes: MockRoute[] = [
 
   { method: "GET", path: "/v1/onboarding/licenciado/:id", handler: () => (requireNotApproved(), onboardingStarted ? onboardingState() : notStarted()) },
   { method: "GET", path: "/v1/onboarding/sublicenciado/:id", handler: () => (requireNotApproved(), onboardingStarted ? onboardingState() : notStarted()) },
+
   { method: "POST", path: "/v1/onboarding/iniciar", handler: () => ((onboardingStarted = true), onboardingState()) },
   { method: "POST", path: "/v1/onboarding/iniciar-sublicenciado", handler: () => ((onboardingStarted = true), onboardingState()) },
-  { method: "PUT", path: "/v1/onboarding/licenciado/:id/etapas/documentos", handler: () => onboardingState() },
-  { method: "PUT", path: "/v1/onboarding/sublicenciado/:id/etapas/documentos", handler: () => onboardingState() },
-  {
-    method: "POST",
-    path: "/v1/onboarding/licenciado/:id/submit",
-    handler: () => {
-      throw new ApiError({ status: 422, code: "ONBOARDING_INCOMPLETE", message: "Ainda há etapas pendentes no cadastro." });
+  { method: "POST", path: "/v1/onboarding/validate-uniqueness", handler: () => ({ cpfUnique: true, emailUnique: true, phoneUnique: true }) },
+  ...(["licenciado", "sublicenciado"] as const).flatMap((role): MockRoute[] => [
+    {
+      method: "PUT",
+      path: `/v1/onboarding/${role}/:id/etapas/:step`,
+      handler: ({ params }) => {
+        const code = STEP_CODES[params.step!];
+        if (!code) throw new ApiError({ status: 404, code: "NOT_FOUND", message: "Etapa inexistente." });
+        completedSteps.add(code);
+        return onboardingState();
+      }
+    },
+    {
+      method: "POST",
+      path: `/v1/onboarding/${role}/:id/submit`,
+      handler: () => {
+        if (!onboardingState().can_submit) {
+          throw new ApiError({ status: 422, code: "ONBOARDING_INCOMPLETE", message: "Ainda há etapas pendentes no cadastro." });
+        }
+        submitted = true;
+        return onboardingState();
+      }
     }
-  },
+  ]),
 
-  { method: "GET", path: "/v1/documentos", handler: () => (requireNotApproved(), { data: documents }) },
+  { method: "GET", path: "/v1/documentos", handler: () => ({ data: documents }) },
   {
     method: "POST",
     path: "/v1/documentos/presign-upload",
@@ -296,8 +342,63 @@ export const engagementRoutes: MockRoute[] = [
       documents.unshift(doc);
       return doc;
     }
-  }
+  },
+  {
+    method: "POST",
+    path: "/v1/documentos/:id/reenviar",
+    handler: ({ params, request }) => {
+      const doc = documents.find((item) => item.id === params.id);
+      if (!doc) throw new ApiError({ status: 404, code: "NOT_FOUND", message: "Documento não encontrado." });
+      Object.assign(doc, {
+        status_validacao: "PENDENTE",
+        reprovado_motivo: null,
+        arquivo_nome: (request.body as { arquivo_nome?: string }).arquivo_nome ?? doc.arquivo_nome
+      });
+      return doc;
+    }
+  },
+
+  { method: "GET", path: "/v1/licenciado-settings/me/notification-preferences", handler: () => notificationPreferences },
+  {
+    method: "PUT",
+    path: "/v1/licenciado-settings/me/notification-preferences",
+    handler: ({ request }) => Object.assign(notificationPreferences, request.body as object)
+  },
+  { method: "GET", path: "/v1/licenciado-settings/me/preferences", handler: () => preferences },
+  { method: "PUT", path: "/v1/licenciado-settings/me/preferences", handler: ({ request }) => (preferences = request.body as typeof preferences) },
+  {
+    method: "POST",
+    path: "/v1/dashboards/licenciado-central/:id/alerts/:alertId/read",
+    handler: ({ params }) => alertAction(params.alertId!, "read_at")
+  },
+  {
+    method: "POST",
+    path: "/v1/dashboards/licenciado-central/:id/alerts/:alertId/resolve",
+    handler: ({ params }) => alertAction(params.alertId!, "resolved_at")
+  },
+  {
+    method: "GET",
+    path: "/v1/documentos/:id/signed-url",
+    handler: ({ params }) => ({
+      document_id: params.id,
+      signed_url: "https://example.com/acvel-mock-document.pdf",
+      expires_at: new Date(Date.now() + 300_000).toISOString()
+    })
+  },
 ];
+
+// ---------------------------------------------------------------- own settings
+const notificationPreferences = { documentos: true, ativacaoUc: true, inadimplencia: true, compensacao: false };
+// Consents start unset: the user must opt in.
+let preferences: unknown = { notifications: { push: true, email: true, whatsapp: false, sms: false }, language: "pt-BR" };
+
+function alertAction(alertId: string, field: "read_at" | "resolved_at") {
+  requireApproved();
+  const alert = dashboard.alerts?.find((item) => item.id === alertId);
+  if (!alert) throw new ApiError({ status: 404, code: "NOT_FOUND", message: "Alerta não encontrado." });
+  Object.assign(alert, { [field]: new Date().toISOString() });
+  return alert;
+}
 
 function notStarted(): never {
   throw new ApiError({ status: 404, code: "ONBOARDING_NOT_FOUND", message: "Cadastro ainda não iniciado." });

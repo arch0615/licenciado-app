@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import { Alert, View } from "react-native";
+import { View } from "react-native";
 
 import { ScreenHeader } from "@/components/navigation/ScreenHeader";
 import { PermissionState, QueryState } from "@/components/states/QueryState";
@@ -12,16 +12,14 @@ import { ListRow } from "@/components/ui/ListRow";
 import { Screen } from "@/components/ui/Screen";
 import { hasPermission } from "@/features/auth/permissions";
 import { useAuthenticatedContext } from "@/features/auth/SessionProvider";
-import { useInvitations, useRevokeInvitation, useTeam } from "@/features/team/useTeam";
+import { useInvitations, useTeam } from "@/features/team/useTeam";
 import { formatCurrency, formatDate, formatNumber } from "@/lib/format";
 import { accountStatusLabel, invitationStatusLabel } from "@/lib/status-labels";
-import { userMessage } from "@/services/api/errors";
 import { spacing } from "@/theme/tokens";
 
+/** Existing invitations, read-only (token-invitation backends only; hidden on the live ACVEL API). */
 function Invitations() {
   const invitations = useInvitations();
-  const revoke = useRevokeInvitation();
-  // Backend without token invitations (live ACVEL API): nothing to list or revoke.
   if (invitations.data === null) return null;
   return (
     <Card>
@@ -43,33 +41,12 @@ function Invitations() {
                   key={invitation.id}
                   title={invitation.email ?? "Convite por link"}
                   subtitle={`Válido até ${formatDate(invitation.expires_at)}`}
-                  right={
-                    invitation.status === "ATIVO" ? (
-                      <Button
-                        label="Cancelar"
-                        variant="ghost"
-                        loading={revoke.isPending && revoke.variables === invitation.id}
-                        onPress={() =>
-                          Alert.alert("Cancelar convite?", "O link deixará de funcionar.", [
-                            { text: "Voltar", style: "cancel" },
-                            { text: "Cancelar convite", style: "destructive", onPress: () => revoke.mutate(invitation.id) }
-                          ])
-                        }
-                      />
-                    ) : (
-                      <Badge label={status.label} tone={status.tone} />
-                    )
-                  }
+                  right={<Badge label={status.label} tone={status.tone} />}
                 />
               );
             })
           }
         </QueryState>
-        {revoke.error ? (
-          <AppText variant="callout" tone="danger">
-            {userMessage(revoke.error)}
-          </AppText>
-        ) : null}
       </View>
     </Card>
   );

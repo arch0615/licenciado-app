@@ -31,6 +31,44 @@ export async function listPayments(api: ApiClient, page: number): Promise<Page<P
   return toPage<Payment>(body, { page, pageSize: COMMISSIONS_PAGE_SIZE });
 }
 
+/**
+ * Textual payment receipt (portal "Baixar comprovante": `GET /v1/pagamentos-licenciados/{id}/comprovante`,
+ * saved by the portal as recibo-pagamento-{id}.txt). Licenciado only; the backend checks ownership.
+ */
+export function getPaymentReceipt(api: ApiClient, paymentId: string): Promise<string> {
+  return api.get<string>(`/v1/pagamentos-licenciados/${encodeURIComponent(paymentId)}/comprovante`, { responseType: "text" });
+}
+
+/** The portal enables "Baixar comprovante" when a receipt file exists or the payment is PAGO. */
+export function hasPaymentReceipt(payment: Pick<Payment, "status" | "comprovante_path" | "tem_comprovante">): boolean {
+  return payment.tem_comprovante === true || Boolean(payment.comprovante_path) || payment.status === "PAGO";
+}
+
 export function getPaymentStatement(api: ApiClient, paymentId: string): Promise<PaymentStatement> {
   return api.get<PaymentStatement>(`/v1/pagamentos-licenciados/${encodeURIComponent(paymentId)}/extrato`);
+}
+
+/**
+ * Eligibility checklist from the backend's `regra_aplicada` (portal /comissoes/regras and the "Detalhe do
+ * lançamento" modal). If the backend sends `elegivel`, it wins; otherwise the portal's rule is applied to the
+ * backend flags (boolean eligibility only — no amounts are computed).
+ */
+export function commissionEligibility(item: Pick<Commission, "regra_aplicada">): {
+  /** False when the backend sent no generation criteria (then nothing is shown as failed). */
+  available: boolean;
+  isCompensating: boolean;
+  invoicePaid: boolean;
+  customerStatus: string;
+  canGenerate: boolean;
+} {
+  const rule = (item.regra_aplicada ?? {}) as Record<string, unknown>;
+  const available = ["consumidor_compensando", "fatura_paga", "status_consumidor", "elegivel"].some(
+    (key) => rule[key] !== undefined && rule[key] !== null
+  );
+  const isCompensating = rule.consumidor_compensando === true;
+  const invoicePaid = rule.fatura_paga === true;
+  const customerStatus = typeof rule.status_consumidor === "string" ? rule.status_consumidor : "NAO_INFORMADO";
+  const canGenerate =
+    typeof rule.elegivel === "boolean" ? rule.elegivel : isCompensating && invoicePaid && customerStatus === "ATIVO_COMPENSANDO";
+  return { available, isCompensating, invoicePaid, customerStatus, canGenerate };
 }

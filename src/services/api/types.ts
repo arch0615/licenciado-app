@@ -24,6 +24,8 @@ export type ApiRequest = {
   service?: ApiService;
   /** Raw (Blob) bodies only: sent as this Content-Type instead of JSON (file uploads through the API). */
   contentType?: string;
+  /** `text` returns the raw response body (e.g. textual receipts) instead of parsing JSON. Default `json`. */
+  responseType?: "json" | "text";
 };
 
 /**

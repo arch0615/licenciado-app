@@ -8,7 +8,7 @@ export default function PendingTicketScreen() {
   const { ticketId } = useLocalSearchParams<{ ticketId: string }>();
   return (
     <Screen>
-      <ScreenHeader title="Chamado" />
+      <ScreenHeader title="Detalhe do ticket" />
       <TicketConversation ticketId={ticketId} />
     </Screen>
   );

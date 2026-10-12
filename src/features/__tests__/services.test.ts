@@ -1,8 +1,9 @@
+import { consumerInvoicesUrl, legalLinks } from "@/config/links";
 import { clientInvitationLink } from "@/features/clients/client-invitation";
 import { listClients } from "@/features/clients/client.service";
-import { uploadDocument, validatePickedFile } from "@/features/documents/document.service";
+import { getDocumentViewUrl } from "@/features/documents/document.service";
 import { isSafeInAppPath } from "@/features/notifications/push";
-import { updateProfile } from "@/features/profile/profile.service";
+import { codeInviteLink } from "@/features/team/team.service";
 import { createApiClient } from "@/services/api/client";
 import { toPage } from "@/services/api/pagination";
 import type { ApiRequest } from "@/services/api/types";
@@ -50,57 +51,24 @@ describe("clients", () => {
   });
 });
 
-describe("profile", () => {
-  it("licenciado: PATCH /v1/licenciados/{id from /auth/me} with name and phone only, then re-reads /me", async () => {
-    const { api, requests } = recordingApi(() => ({}));
-    await updateProfile(api, { tipoUsuarioResolvido: "LICENCIADO", licenciadoId: "lic-9" }, { nome_completo: "A", telefone: "1", email: "x@y.z" });
-    expect(requests[0]).toMatchObject({ method: "PATCH", path: "/v1/licenciados/lic-9", body: { nome_completo: "A", telefone: "1", celular: "1" } });
-    expect(requests[0]?.body).not.toHaveProperty("email");
-    expect(requests[1]).toMatchObject({ method: "GET", path: "/v1/licenciados/me" });
-  });
-
-  it("representatives cannot update (no live endpoint) and nothing is sent", async () => {
-    const { api, requests } = recordingApi(() => ({}));
-    await expect(
-      updateProfile(api, { tipoUsuarioResolvido: "SUBLICENCIADO", licenciadoId: "lic-1" }, { nome_completo: "A" })
-    ).rejects.toMatchObject({ code: "PROFILE_UPDATE_UNSUPPORTED" });
-    expect(requests).toHaveLength(0);
+describe("documents (read-only)", () => {
+  it("returns only absolute https view URLs", async () => {
+    const https = recordingApi(() => ({ signed_url: "https://storage.test/doc?sig=1" }));
+    await expect(getDocumentViewUrl(https.api, "d1")).resolves.toBe("https://storage.test/doc?sig=1");
+    expect(https.requests[0]).toMatchObject({ method: "GET", path: "/v1/documentos/d1/signed-url" });
+    const relative = recordingApi(() => ({ signed_url: "/v1/documentos/d1/content" }));
+    await expect(getDocumentViewUrl(relative.api, "d1")).resolves.toBeNull();
+    const plain = recordingApi(() => ({ signed_url: "http://storage.test/doc" }));
+    await expect(getDocumentViewUrl(plain.api, "d1")).resolves.toBeNull();
   });
 });
 
-describe("documents", () => {
-  const file = { uri: "file:///doc.pdf", name: "doc.pdf", size: 1000, mimeType: "application/pdf" };
-  const owner = { proprietario_tipo: "LICENCIADO" as const, licenciado_id: "lic-1" };
-
-  it("validates type and size before uploading", () => {
-    expect(validatePickedFile({ ...file, mimeType: "text/plain" })).toMatch(/foto ou um PDF/);
-    expect(validatePickedFile({ ...file, size: 13 * 1024 * 1024 })).toMatch(/12 MB/);
-    expect(validatePickedFile({ ...file, mimeType: "image/jpeg", size: 7 * 1024 * 1024 })).toMatch(/6 MB/);
-    expect(validatePickedFile(file)).toBeNull();
-  });
-
-  it("uploads to an absolute presigned URL without the Firebase token, then confirms", async () => {
-    const { api, requests } = recordingApi((request) =>
-      request.path === "/v1/documentos/presign-upload"
-        ? { upload_url: "https://storage.test/put?sig=1", upload_method: "PUT", arquivo_path: "p/1", expires_at: "" }
-        : { id: "d1" }
+describe("team invite link (share only)", () => {
+  it("builds the web-portal signup link and needs the portal URL", () => {
+    expect(codeInviteLink("LIC 1", "https://portal.acvel.test")).toBe(
+      "https://portal.acvel.test/auth/register/sublicenciado?codigo=LIC%201"
     );
-    const fetchImpl = jest.fn(async (url: RequestInfo | URL) =>
-      String(url).startsWith("file:") ? new Response("bytes") : new Response(null, { status: 200 })
-    ) as unknown as typeof fetch;
-    await uploadDocument(api, owner, "RG", file, { fetchImpl, hash: async () => "abc123" });
-    expect(requests[0]?.body).toMatchObject({ arquivo_checksum: "abc123", arquivo_mime_type: "application/pdf", arquivo_tamanho: 1000 });
-    expect(requests[1]?.body).toMatchObject({ arquivo_checksum: "abc123", arquivo_path: "p/1" });
-    const put = (fetchImpl as unknown as jest.Mock).mock.calls.find(([url]) => String(url).startsWith("https://"));
-    expect(put?.[1]).toMatchObject({ method: "PUT", headers: { "Content-Type": "application/pdf" } });
-    expect(JSON.stringify(put?.[1]?.headers)).not.toMatch(/Authorization/i);
-    expect(requests.map((request) => request.path)).toEqual(["/v1/documentos/presign-upload", "/v1/documentos/confirm-upload"]);
-  });
-
-  it("refuses non-https absolute upload URLs", async () => {
-    const { api } = recordingApi(() => ({ upload_url: "http://evil.test/put", arquivo_path: "p" }));
-    const fetchImpl = jest.fn(async () => new Response("bytes")) as unknown as typeof fetch;
-    await expect(uploadDocument(api, owner, "RG", file, { fetchImpl, hash: async () => "x" })).rejects.toMatchObject({ code: "UPLOAD_URL_REJECTED" });
+    expect(codeInviteLink("LIC1", "")).toBeNull();
   });
 });
 
@@ -111,5 +79,20 @@ describe("notifications", () => {
     expect(isSafeInAppPath("//evil.test")).toBe(false);
     expect(isSafeInAppPath("javascript:alert(1)")).toBe(false);
     expect(isSafeInAppPath(null)).toBe(false);
+  });
+});
+
+describe("portal links (env-based)", () => {
+  const terms = "https://portal.acvel.test/termos-de-uso-e-privacidade";
+
+  it("shows one combined link when terms and privacy are the same page", () => {
+    expect(legalLinks(terms, terms)).toEqual([{ label: "Termos de uso e privacidade", url: terms }]);
+    expect(legalLinks(terms, "https://portal.acvel.test/privacidade")).toHaveLength(2);
+    expect(legalLinks("", "")).toEqual([]);
+  });
+
+  it("opens the invoice list (never an invoice detail) and needs the consumer URL", () => {
+    expect(consumerInvoicesUrl("https://cliente.acvel.test/")).toBe("https://cliente.acvel.test/faturas");
+    expect(consumerInvoicesUrl("")).toBeNull();
   });
 });

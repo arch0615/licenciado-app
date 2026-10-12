@@ -6,14 +6,24 @@ import { QueryState } from "@/components/states/QueryState";
 import { AppText } from "@/components/ui/AppText";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { TextField } from "@/components/forms/TextField";
 import { ChipGroup } from "@/components/ui/Chip";
+import { useDebouncedValue } from "@/lib/useDebouncedValue";
 import { Screen } from "@/components/ui/Screen";
 import { isSafeInAppPath } from "@/features/notifications/push";
 import type { NotificationItem } from "@/features/notifications/notification.service";
 import { useMarkNotificationRead, useNotifications } from "@/features/notifications/useNotifications";
 import { formatDateTime } from "@/lib/format";
-import { alertSeverityTone } from "@/lib/status-labels";
+import { alertSeverityTone, NOTIFICATION_TYPES } from "@/lib/status-labels";
 import { spacing } from "@/theme/tokens";
+
+const TYPE_FILTERS = [{ value: "ALL", label: "Todos os tipos" }, ...NOTIFICATION_TYPES];
+const SEVERITY_FILTERS = [
+  { value: "ALL", label: "Todas as severidades" },
+  { value: "INFO", label: "Informativo" },
+  { value: "WARNING", label: "Atenção" },
+  { value: "CRITICAL", label: "Crítico" }
+];
 
 /** Structured targets first; `actionHref` only when it is a relative in-app path. */
 function targetOf(item: NotificationItem): Href | null {
@@ -22,12 +32,19 @@ function targetOf(item: NotificationItem): Href | null {
   return isSafeInAppPath(item.actionHref) ? (item.actionHref as Href) : null;
 }
 
-/** S39 — Notificações (B18–B20). */
+/** S39 — Notificações (portal /notificacoes): search, type, severity, unread, mark read / all, open. */
 export default function NotificationsScreen() {
   const [filter, setFilter] = useState<"all" | "unread">("all");
-  const notifications = useNotifications(filter === "unread");
+  const [type, setType] = useState("ALL");
+  const [severity, setSeverity] = useState("ALL");
+  const [search, setSearch] = useState("");
+  const query = useDebouncedValue(search);
+  const notifications = useNotifications(filter === "unread", query);
   const markRead = useMarkNotificationRead();
-  const items = notifications.data?.pages.flatMap((page) => page.items) ?? [];
+  // The live API filters by text and unread only; type and severity are applied here, like the portal UI.
+  const items = (notifications.data?.pages.flatMap((page) => page.items) ?? []).filter(
+    (item) => (type === "ALL" || item.type === type) && (severity === "ALL" || item.severity === severity)
+  );
 
   function open(item: NotificationItem) {
     if (!item.readAt) markRead.mutate(item.id);
@@ -47,11 +64,22 @@ export default function NotificationsScreen() {
           onChange={setFilter}
         />
       </View>
+      <TextField label="Buscar em título e mensagem" value={search} onChangeText={setSearch} autoCorrect={false} />
+      <ChipGroup options={TYPE_FILTERS} value={type} onChange={setType} />
+      <ChipGroup options={SEVERITY_FILTERS} value={severity} onChange={setSeverity} />
       <Button label="Marcar todas como lidas" variant="ghost" loading={markRead.isPending && markRead.variables === "all"} onPress={() => markRead.mutate("all")} />
       <QueryState
         query={notifications}
         isEmpty={() => items.length === 0}
-        empty={<AppText tone="muted">{filter === "unread" ? "Nenhuma notificação não lida." : "Nenhuma notificação."}</AppText>}
+        empty={
+          <AppText tone="muted">
+            {type !== "ALL" || severity !== "ALL" || query
+              ? "Nenhuma notificação encontrada para os filtros atuais."
+              : filter === "unread"
+                ? "Nenhuma notificação não lida."
+                : "Nenhuma notificação."}
+          </AppText>
+        }
       >
         {() => (
           <View style={{ gap: spacing.sm }}>

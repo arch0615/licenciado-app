@@ -41,7 +41,7 @@ export function ErrorState({ title = "Não foi possível carregar", error, onRet
         <View style={styles.flex}>
           <AppText variant="bodyStrong">{title}</AppText>
           <AppText variant="callout" tone="muted">
-            {error ? userMessage(error) : "Tente novamente em instantes."}
+            {error ? userMessage(error) : "Tente novamente em alguns instantes."}
           </AppText>
         </View>
       </View>
