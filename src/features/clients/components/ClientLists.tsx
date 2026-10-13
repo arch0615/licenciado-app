@@ -22,7 +22,7 @@ import { useClients, useJourneyBoard, usePendingActions } from "../useClients";
 type StatusChip = "ALL" | ClientStatus;
 const STATUS_CHIPS: { value: StatusChip; label: string }[] = [
   { value: "ALL", label: "Todos" },
-  { value: "PENDENTE_APROVACAO", label: "Em cadastro" },
+  { value: "PENDENTE_APROVACAO", label: "Em ativação" },
   { value: "APROVADO", label: "Ativos" },
   { value: "INATIVO", label: "Inativos" }
 ];

@@ -42,7 +42,14 @@ export function ChipGroup<T extends string>({
   onChange: (value: T) => void;
 }) {
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.xs }}>
+    // ScrollView defaults to flexGrow/flexShrink 1: inside a fixed-height column (e.g. Clientes) the row would
+    // stretch into the free space or be squeezed. A chip row always takes just its content height.
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      style={{ flexGrow: 0, flexShrink: 0 }}
+      contentContainerStyle={{ gap: spacing.xs, alignItems: "center" }}
+    >
       {options.map((option) => (
         <Chip key={option.value} label={option.label} selected={option.value === value} onPress={() => onChange(option.value)} />
       ))}
