@@ -151,11 +151,18 @@ export async function fetchMe(api: ApiClient): Promise<AuthMe> {
  * Remote app status (maintenance / minimum version). The endpoint is planned (MOB-API-4) and not in
  * Swagger; until it exists, any failure means "not in maintenance" — availability must not depend on it.
  */
-export async function fetchAppStatus(api: ApiClient): Promise<AppStatus> {
+export const APP_STATUS_TIMEOUT_MS = 5000;
+
+export async function fetchAppStatus(api: ApiClient, timeoutMs = APP_STATUS_TIMEOUT_MS): Promise<AppStatus> {
+  // Startup waits for this call, so it gets its own short limit (the default API timeout is much longer).
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    return await api.get<AppStatus>("/v1/app/status", { authenticated: false, service: "business" });
+    return await api.get<AppStatus>("/v1/app/status", { authenticated: false, service: "business", signal: controller.signal });
   } catch {
     return { maintenance: false };
+  } finally {
+    clearTimeout(timer);
   }
 }
 

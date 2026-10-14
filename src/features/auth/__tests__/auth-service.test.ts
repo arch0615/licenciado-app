@@ -2,7 +2,7 @@ import { ApiError } from "@/services/api/errors";
 import type { ApiClient, ApiRequest } from "@/services/api/types";
 import { createApiClient } from "@/services/api/client";
 
-import { approvalFromStatus, fetchMe, normalizeAuthMe } from "../auth.service";
+import { approvalFromStatus, fetchAppStatus, fetchMe, normalizeAuthMe } from "../auth.service";
 import { hasPermission } from "../permissions";
 
 /** Records requests and answers from a path → response map (Error instances are thrown). */
@@ -97,5 +97,21 @@ describe("auth service", () => {
     expect(hasPermission({ tipoUsuarioResolvido: "LICENCIADO", permissions: ["profile:read"] }, "team:read")).toBe(false);
     expect(hasPermission({ tipoUsuarioResolvido: "LICENCIADO", permissions: null }, "team:read")).toBe(true);
     expect(hasPermission({ tipoUsuarioResolvido: "SUBLICENCIADO", permissions: null }, "team:read")).toBe(false);
+  });
+});
+
+describe("startup maintenance check", () => {
+  it("gives up after its own short timeout and never blocks startup", async () => {
+    // A server that never answers: the request only ends when the app aborts it.
+    const hanging = createApiClient({
+      kind: "mock",
+      request: (request: ApiRequest) =>
+        new Promise((_resolve, reject) => {
+          request.signal?.addEventListener("abort", () => reject(new Error("aborted")));
+        })
+    });
+    const started = Date.now();
+    await expect(fetchAppStatus(hanging, 50)).resolves.toEqual({ maintenance: false });
+    expect(Date.now() - started).toBeLessThan(2000);
   });
 });

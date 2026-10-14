@@ -69,6 +69,9 @@ function RootNavigator() {
   );
 }
 
+/** Fonts must be ready before any text is laid out; this timeout only guards against a font load that never settles. */
+const FONT_TIMEOUT_MS = 6000;
+
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
     Montserrat_400Regular,
@@ -76,13 +79,23 @@ export default function RootLayout() {
     Montserrat_600SemiBold,
     Montserrat_700Bold
   });
+  const [fontWaitOver, setFontWaitOver] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setFontWaitOver(true), FONT_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, []);
+  const fontsSettled = fontsLoaded || fontError !== null || fontWaitOver;
+
+  // Keep the native splash (nothing rendered) until the fonts are settled, so text is never measured with the
+  // fallback font — on Android that leaves every label clipped at the fallback width.
+  if (!fontsSettled) return null;
 
   return (
     <SafeAreaProvider>
       <QueryProvider>
         <ThemeProvider>
           <SessionProvider>
-            <SplashController fontsLoaded={fontsLoaded || fontError !== null} />
+            <SplashController fontsLoaded={fontsSettled} />
             <RootNavigator />
           </SessionProvider>
         </ThemeProvider>

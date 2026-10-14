@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createContext, use, useCallback, useEffect, useMemo, useState, type PropsWithChildren } from "react";
 
+import { isApiError } from "@/services/api/errors";
 import { api, authGateway } from "@/services/runtime";
 import { queryKeys } from "@/services/query/query-keys";
 
@@ -51,16 +52,23 @@ export function SessionProvider({ children }: PropsWithChildren) {
     };
   }, [queryClient]);
 
+  // Startup queries run even when NetInfo reports "offline" (networkMode "always"): a paused query would keep the
+  // app on the loading screen forever with no error and no retry button.
   const appStatus = useQuery({
     queryKey: queryKeys.app.status(),
     queryFn: () => fetchAppStatus(api),
-    staleTime: 60_000
+    staleTime: 60_000,
+    networkMode: "always",
+    retry: false
   });
 
   const me = useQuery({
     queryKey: queryKeys.auth.me(identity?.uid ?? null),
     queryFn: () => fetchMe(api),
-    enabled: identity !== null
+    enabled: identity !== null,
+    networkMode: "always",
+    // One retry (plus the transport's own GET retry) keeps a failure visible within seconds, not minutes.
+    retry: (failureCount, error) => !(isApiError(error) && error.isClientError) && failureCount < 1
   });
 
   // Mock mode: persona/maintenance toggles take effect immediately.
